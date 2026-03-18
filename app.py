@@ -8,6 +8,7 @@ from database import (
     save_weight_entry,
     get_weight_entries,
     delete_weight_entry as db_delete_weight_entry,
+    update_weight_entry as db_update_weight_entry,
 )
 
 
@@ -27,6 +28,10 @@ class MainWindow(QtWidgets.QWidget):
         self.save_profile_button = QtWidgets.QPushButton("Save profile")
         self.save_weight_button = QtWidgets.QPushButton("Save weight")
         self.delete_weight_button = QtWidgets.QPushButton("Delete selected weight")
+        self.edit_weight_button = QtWidgets.QPushButton("Edit selected weight")
+        self.update_weight_button = QtWidgets.QPushButton("Update weight")
+
+        self.editing_weight_entry_id = None
 
         self.name_input = QtWidgets.QLineEdit()
         self.height_input = QtWidgets.QLineEdit()
@@ -86,6 +91,8 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_page = QtWidgets.QWidget()
         weight_page_layout = QtWidgets.QVBoxLayout()
         weight_page_layout.addLayout(weight_form_layout)
+        weight_page_layout.addWidget(self.edit_weight_button)
+        weight_page_layout.addWidget(self.update_weight_button)
         weight_page_layout.addWidget(self.delete_weight_button)
         weight_page_layout.addWidget(self.weight_table)
         self.weight_page.setLayout(weight_page_layout)
@@ -127,9 +134,12 @@ class MainWindow(QtWidgets.QWidget):
         self.tests_button.clicked.connect(self.show_tests_page)
         self.workout_button.clicked.connect(self.show_workout_page)
         self.progress_button.clicked.connect(self.show_progress_page)
+
         self.save_profile_button.clicked.connect(self.save_profile)
         self.save_weight_button.clicked.connect(self.save_weight)
         self.delete_weight_button.clicked.connect(self.delete_weight_entry)
+        self.edit_weight_button.clicked.connect(self.edit_weight_entry)
+        self.update_weight_button.clicked.connect(self.update_weight_entry)
 
         self.pages.setCurrentWidget(self.home_page)
         self.load_user_profile()
@@ -227,6 +237,46 @@ class MainWindow(QtWidgets.QWidget):
 
         entry_id = int(item.text())
         db_delete_weight_entry(entry_id)
+        self.load_weight_entries()
+
+    def edit_weight_entry(self):
+        selected_row = self.weight_table.currentRow()
+
+        if selected_row == -1:
+            return
+
+        id_item = self.weight_table.item(selected_row, 0)
+        date_item = self.weight_table.item(selected_row, 1)
+        weight_item = self.weight_table.item(selected_row, 2)
+        note_item = self.weight_table.item(selected_row, 3)
+
+        if id_item is None or date_item is None or weight_item is None:
+            return
+
+        self.editing_weight_entry_id = int(id_item.text())
+
+        date_value = QtCore.QDate.fromString(date_item.text(), "yyyy-MM-dd")
+        if date_value.isValid():
+            self.weight_date_input.setDate(date_value)
+
+        self.weight_input.setText(weight_item.text())
+        self.weight_note_input.setText(note_item.text() if note_item else "")
+
+    def update_weight_entry(self):
+        if self.editing_weight_entry_id is None:
+            return
+
+        entry_date = self.weight_date_input.date().toString("yyyy-MM-dd")
+        weight = float(self.weight_input.text())
+        note = self.weight_note_input.text()
+
+        db_update_weight_entry(self.editing_weight_entry_id, entry_date, weight, note)
+
+        self.editing_weight_entry_id = None
+        self.weight_input.clear()
+        self.weight_note_input.clear()
+        self.weight_date_input.setDate(QtCore.QDate.currentDate())
+
         self.load_weight_entries()
 
 
