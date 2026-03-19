@@ -148,3 +148,19 @@ def save_test_entry(user_id, entry_date, test_name, result_value, unit, note):
 
     conn.commit()
     conn.close()
+
+def get_test_entries(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT id, entry_date, test_name, result_value, unit, note
+    FROM fitness_tests
+    WHERE user_id = ?
+    ORDER BY entry_date DESC, id DESC
+    """, (user_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows

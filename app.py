@@ -7,6 +7,7 @@ from database import (
     get_user_profile,
     save_weight_entry,
     save_test_entry,
+    get_test_entries,
     get_weight_entries,
     delete_weight_entry as db_delete_weight_entry,
     update_weight_entry as db_update_weight_entry,
@@ -48,6 +49,7 @@ class MainWindow(QtWidgets.QWidget):
         self.test_result_input = QtWidgets.QLineEdit()
         self.test_unit_input = QtWidgets.QLineEdit()
         self.test_comment_input = QtWidgets.QLineEdit()
+        self.test_results_list = QtWidgets.QListWidget()
 
         self.weight_date_input.setCalendarPopup(True)
         self.weight_date_input.setDate(QtCore.QDate.currentDate())
@@ -120,7 +122,11 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_page.setLayout(weight_page_layout)
 
         self.tests_page = QtWidgets.QWidget()
-        self.tests_page.setLayout(tests_form_layout)
+        tests_page_layout = QtWidgets.QVBoxLayout()
+        tests_page_layout.addLayout(tests_form_layout)
+        tests_page_layout.addWidget(QtWidgets.QLabel("Test results"))
+        tests_page_layout.addWidget(self.test_results_list)
+        self.tests_page.setLayout(tests_page_layout)
 
         self.workout_page = QtWidgets.QLabel("Workout Page", alignment=QtCore.Qt.AlignCenter)
         self.progress_page = QtWidgets.QLabel("Progress Page", alignment=QtCore.Qt.AlignCenter)
@@ -180,6 +186,7 @@ class MainWindow(QtWidgets.QWidget):
         self.pages.setCurrentWidget(self.weight_page)
 
     def show_tests_page(self):
+        self.load_test_entries()
         self.pages.setCurrentWidget(self.tests_page)
 
     def show_workout_page(self):
@@ -323,6 +330,25 @@ class MainWindow(QtWidgets.QWidget):
         self.test_unit_input.clear()
         self.test_comment_input.clear()
         self.test_date_input.setDate(QtCore.QDate.currentDate())
+        self.load_test_entries()
+
+    def load_test_entries(self):
+        profile = get_user_profile()
+
+        self.test_results_list.clear()
+
+        if profile is None:
+            return
+
+        user_id = profile[0]
+        rows = get_test_entries(user_id)
+
+        for _, entry_date, test_name, result_value, unit, note in rows:
+            unit_text = f" {unit}" if unit else ""
+            note_text = f" ({note})" if note else ""
+            entry_text = f"{entry_date} - {test_name}: {result_value}{unit_text}{note_text}"
+            self.test_results_list.addItem(entry_text)
+
 
 if __name__ == "__main__":
     init_db()
