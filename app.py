@@ -52,7 +52,10 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_input = QtWidgets.QLineEdit()
         self.weight_note_input = QtWidgets.QLineEdit()
         self.test_date_input = QtWidgets.QDateEdit()
-        self.test_name_input = QtWidgets.QLineEdit()
+        self.test_name_input = QtWidgets.QComboBox()
+        self.test_name_input.addItems(
+            ["punnerrukset", "leuanvedot", "lankku", "kyykyt", "muu"]
+        )
         self.test_result_input = QtWidgets.QLineEdit()
         self.test_unit_input = QtWidgets.QLineEdit()
         self.test_comment_input = QtWidgets.QLineEdit()
@@ -332,14 +335,14 @@ class MainWindow(QtWidgets.QWidget):
         
         user_id = profile[0]
         entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
-        test_name = self.test_name_input.text()
+        test_name = self.test_name_input.currentText()
         result_value = float(self.test_result_input.text())
         unit = self.test_unit_input.text()
         note = self.test_comment_input.text()
 
         save_test_entry(user_id, entry_date, test_name, result_value, unit, note)
 
-        self.test_name_input.clear()
+        self.test_name_input.setCurrentIndex(0)
         self.test_result_input.clear()
         self.test_unit_input.clear()
         self.test_comment_input.clear()
@@ -407,7 +410,13 @@ class MainWindow(QtWidgets.QWidget):
         if date_value.isValid():
             self.test_date_input.setDate(date_value)
 
-        self.test_name_input.setText(entry_data["test_name"])
+        test_name_index = self.test_name_input.findText(entry_data["test_name"])
+        if test_name_index >= 0:
+            self.test_name_input.setCurrentIndex(test_name_index)
+        else:
+            muu_index = self.test_name_input.findText("muu")
+            if muu_index >= 0:
+                self.test_name_input.setCurrentIndex(muu_index)
         self.test_result_input.setText(str(entry_data["result_value"]))
         self.test_unit_input.setText(entry_data["unit"])
         self.test_comment_input.setText(entry_data["note"])
@@ -418,7 +427,7 @@ class MainWindow(QtWidgets.QWidget):
             return
 
         entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
-        test_name = self.test_name_input.text()
+        test_name = self.test_name_input.currentText()
         result_value = float(self.test_result_input.text())
         unit = self.test_unit_input.text()
         note = self.test_comment_input.text()
@@ -433,7 +442,7 @@ class MainWindow(QtWidgets.QWidget):
         )
 
         self.editing_test_entry_id = None
-        self.test_name_input.clear()
+        self.test_name_input.setCurrentIndex(0)
         self.test_result_input.clear()
         self.test_unit_input.clear()
         self.test_comment_input.clear()
