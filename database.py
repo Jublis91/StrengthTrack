@@ -177,3 +177,15 @@ def delete_test_entry(entry_id):
     conn.commit()
     conn.close()
 
+def update_test_entry(entry_id, entry_date, test_name, result_value, unit, note):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    UPDATE fitness_tests
+    SET entry_date = ?, test_name = ?, result_value = ?, unit = ?, note = ?
+    WHERE id = ?
+    """, (entry_date, test_name, result_value, unit, note, entry_id))
+
+    conn.commit()
+    conn.close()

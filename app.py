@@ -12,6 +12,7 @@ from database import (
     delete_test_entry as db_delete_test_entry,
     delete_weight_entry as db_delete_weight_entry,
     update_weight_entry as db_update_weight_entry,
+    update_test_entry as db_update_test_entry,
 )
 
 
@@ -35,8 +36,12 @@ class MainWindow(QtWidgets.QWidget):
         self.delete_test_button = QtWidgets.QPushButton("Delete selected test")
         self.edit_weight_button = QtWidgets.QPushButton("Edit selected weight")
         self.update_weight_button = QtWidgets.QPushButton("Update weight")
+        self.edit_test_button = QtWidgets.QPushButton("Edit selected test")
+        self.update_test_button = QtWidgets.QPushButton("Update test")
+
 
         self.editing_weight_entry_id = None
+        self.editing_test_entry_id = None
 
         self.name_input = QtWidgets.QLineEdit()
         self.height_input = QtWidgets.QLineEdit()
@@ -126,6 +131,8 @@ class MainWindow(QtWidgets.QWidget):
         self.tests_page = QtWidgets.QWidget()
         tests_page_layout = QtWidgets.QVBoxLayout()
         tests_page_layout.addLayout(tests_form_layout)
+        tests_page_layout.addWidget(self.edit_test_button)
+        tests_page_layout.addWidget(self.update_test_button)
         tests_page_layout.addWidget(self.delete_test_button)
         tests_page_layout.addWidget(QtWidgets.QLabel("Test results"))
         tests_page_layout.addWidget(self.test_results_list)
@@ -174,6 +181,9 @@ class MainWindow(QtWidgets.QWidget):
         self.delete_weight_button.clicked.connect(self.delete_weight_entry)
         self.edit_weight_button.clicked.connect(self.edit_weight_entry)
         self.update_weight_button.clicked.connect(self.update_weight_entry)
+        self.edit_test_button.clicked.connect(self.edit_test_entry)
+        self.update_test_button.clicked.connect(self.update_test_entry)
+
 
         self.pages.setCurrentWidget(self.home_page)
         self.load_user_profile()
@@ -353,6 +363,16 @@ class MainWindow(QtWidgets.QWidget):
             entry_text = f"{entry_date} - {test_name}: {result_value}{unit_text}{note_text}"
             item = QtWidgets.QListWidgetItem(entry_text)
             item.setData(QtCore.Qt.UserRole, entry_id)
+            item.setData(
+                QtCore.Qt.UserRole + 1,
+                {
+                    "entry_date": entry_date,
+                    "test_name": test_name,
+                    "result_value": result_value,
+                    "unit": unit or "",
+                    "note": note or "",
+                },
+            )
             self.test_results_list.addItem(item)
 
     def delete_test_entry(self):
@@ -368,6 +388,59 @@ class MainWindow(QtWidgets.QWidget):
 
         db_delete_test_entry(int(entry_id))
         self.load_test_entries()
+    
+    def edit_test_entry(self):
+        selected_item = self.test_results_list.currentItem()
+
+        if selected_item is None:
+            return
+
+        entry_id = selected_item.data(QtCore.Qt.UserRole)
+        if entry_id is None:
+            return
+
+        entry_data = selected_item.data(QtCore.Qt.UserRole + 1)
+        if not isinstance(entry_data, dict):
+            return
+
+        date_value = QtCore.QDate.fromString(entry_data["entry_date"], "yyyy-MM-dd")
+        if date_value.isValid():
+            self.test_date_input.setDate(date_value)
+
+        self.test_name_input.setText(entry_data["test_name"])
+        self.test_result_input.setText(str(entry_data["result_value"]))
+        self.test_unit_input.setText(entry_data["unit"])
+        self.test_comment_input.setText(entry_data["note"])
+        self.editing_test_entry_id = int(entry_id)
+
+    def update_test_entry(self):
+        if self.editing_test_entry_id is None:
+            return
+
+        entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
+        test_name = self.test_name_input.text()
+        result_value = float(self.test_result_input.text())
+        unit = self.test_unit_input.text()
+        note = self.test_comment_input.text()
+
+        db_update_test_entry(
+            self.editing_test_entry_id,
+            entry_date,
+            test_name,
+            result_value,
+            unit,
+            note,
+        )
+
+        self.editing_test_entry_id = None
+        self.test_name_input.clear()
+        self.test_result_input.clear()
+        self.test_unit_input.clear()
+        self.test_comment_input.clear()
+        self.test_date_input.setDate(QtCore.QDate.currentDate())
+        self.load_test_entries()
+
+
 
 
 
