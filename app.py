@@ -9,6 +9,7 @@ from database import (
     save_test_entry,
     get_test_entries,
     get_weight_entries,
+    delete_test_entry as db_delete_test_entry,
     delete_weight_entry as db_delete_weight_entry,
     update_weight_entry as db_update_weight_entry,
 )
@@ -31,6 +32,7 @@ class MainWindow(QtWidgets.QWidget):
         self.save_weight_button = QtWidgets.QPushButton("Save weight")
         self.save_test_button = QtWidgets.QPushButton("Save test")
         self.delete_weight_button = QtWidgets.QPushButton("Delete selected weight")
+        self.delete_test_button = QtWidgets.QPushButton("Delete selected test")
         self.edit_weight_button = QtWidgets.QPushButton("Edit selected weight")
         self.update_weight_button = QtWidgets.QPushButton("Update weight")
 
@@ -124,6 +126,7 @@ class MainWindow(QtWidgets.QWidget):
         self.tests_page = QtWidgets.QWidget()
         tests_page_layout = QtWidgets.QVBoxLayout()
         tests_page_layout.addLayout(tests_form_layout)
+        tests_page_layout.addWidget(self.delete_test_button)
         tests_page_layout.addWidget(QtWidgets.QLabel("Test results"))
         tests_page_layout.addWidget(self.test_results_list)
         self.tests_page.setLayout(tests_page_layout)
@@ -167,6 +170,7 @@ class MainWindow(QtWidgets.QWidget):
         self.save_profile_button.clicked.connect(self.save_profile)
         self.save_weight_button.clicked.connect(self.save_weight)
         self.save_test_button.clicked.connect(self.save_test)
+        self.delete_test_button.clicked.connect(self.delete_test_entry)
         self.delete_weight_button.clicked.connect(self.delete_weight_entry)
         self.edit_weight_button.clicked.connect(self.edit_weight_entry)
         self.update_weight_button.clicked.connect(self.update_weight_entry)
@@ -343,11 +347,28 @@ class MainWindow(QtWidgets.QWidget):
         user_id = profile[0]
         rows = get_test_entries(user_id)
 
-        for _, entry_date, test_name, result_value, unit, note in rows:
+        for entry_id, entry_date, test_name, result_value, unit, note in rows:
             unit_text = f" {unit}" if unit else ""
             note_text = f" ({note})" if note else ""
             entry_text = f"{entry_date} - {test_name}: {result_value}{unit_text}{note_text}"
-            self.test_results_list.addItem(entry_text)
+            item = QtWidgets.QListWidgetItem(entry_text)
+            item.setData(QtCore.Qt.UserRole, entry_id)
+            self.test_results_list.addItem(item)
+
+    def delete_test_entry(self):
+        selected_item = self.test_results_list.currentItem()
+
+        if selected_item is None:
+            return
+
+        entry_id = selected_item.data(QtCore.Qt.UserRole)
+
+        if entry_id is None:
+            return
+
+        db_delete_test_entry(int(entry_id))
+        self.load_test_entries()
+
 
 
 if __name__ == "__main__":

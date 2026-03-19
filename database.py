@@ -164,3 +164,16 @@ def get_test_entries(user_id):
     conn.close()
 
     return rows
+
+def delete_test_entry(entry_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    DELETE FROM fitness_tests
+    WHERE id = ?
+    """, (entry_id,))
+
+    conn.commit()
+    conn.close()
+
