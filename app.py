@@ -27,6 +27,7 @@ class MainWindow(QtWidgets.QWidget):
 
         self.save_profile_button = QtWidgets.QPushButton("Save profile")
         self.save_weight_button = QtWidgets.QPushButton("Save weight")
+        self.save_test_button = QtWidgets.QPushButton("Save test")
         self.delete_weight_button = QtWidgets.QPushButton("Delete selected weight")
         self.edit_weight_button = QtWidgets.QPushButton("Edit selected weight")
         self.update_weight_button = QtWidgets.QPushButton("Update weight")
@@ -41,9 +42,16 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_date_input = QtWidgets.QDateEdit()
         self.weight_input = QtWidgets.QLineEdit()
         self.weight_note_input = QtWidgets.QLineEdit()
+        self.test_date_input = QtWidgets.QDateEdit()
+        self.test_name_input = QtWidgets.QLineEdit()
+        self.test_result_input = QtWidgets.QLineEdit()
+        self.test_unit_input = QtWidgets.QLineEdit()
+        self.test_comment_input = QtWidgets.QLineEdit()
 
         self.weight_date_input.setCalendarPopup(True)
         self.weight_date_input.setDate(QtCore.QDate.currentDate())
+        self.test_date_input.setCalendarPopup(True)
+        self.test_date_input.setDate(QtCore.QDate.currentDate())
 
         self.home_label = QtWidgets.QLabel("No profile found")
         self.home_label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
@@ -57,6 +65,11 @@ class MainWindow(QtWidgets.QWidget):
         weight_date_label = QtWidgets.QLabel("Date")
         weight_value_label = QtWidgets.QLabel("Weight (kg)")
         weight_note_label = QtWidgets.QLabel("Comment")
+        test_date_label = QtWidgets.QLabel("Date")
+        test_name_label = QtWidgets.QLabel("Test name")
+        test_result_label = QtWidgets.QLabel("Result")
+        test_unit_label = QtWidgets.QLabel("Unit")
+        test_comment_label = QtWidgets.QLabel("Comment")
 
         form_layout = QtWidgets.QFormLayout()
         form_layout.addRow(name_label, self.name_input)
@@ -70,6 +83,14 @@ class MainWindow(QtWidgets.QWidget):
         weight_form_layout.addRow(weight_value_label, self.weight_input)
         weight_form_layout.addRow(weight_note_label, self.weight_note_input)
         weight_form_layout.addRow(self.save_weight_button)
+
+        tests_form_layout = QtWidgets.QFormLayout()
+        tests_form_layout.addRow(test_date_label, self.test_date_input)
+        tests_form_layout.addRow(test_name_label, self.test_name_input)
+        tests_form_layout.addRow(test_result_label, self.test_result_input)
+        tests_form_layout.addRow(test_unit_label, self.test_unit_input)
+        tests_form_layout.addRow(test_comment_label, self.test_comment_input)
+        tests_form_layout.addRow(self.save_test_button)
 
         self.weight_table = QtWidgets.QTableWidget()
         self.weight_table.setColumnCount(4)
@@ -97,7 +118,9 @@ class MainWindow(QtWidgets.QWidget):
         weight_page_layout.addWidget(self.weight_table)
         self.weight_page.setLayout(weight_page_layout)
 
-        self.tests_page = QtWidgets.QLabel("Tests Page", alignment=QtCore.Qt.AlignCenter)
+        self.tests_page = QtWidgets.QWidget()
+        self.tests_page.setLayout(tests_form_layout)
+
         self.workout_page = QtWidgets.QLabel("Workout Page", alignment=QtCore.Qt.AlignCenter)
         self.progress_page = QtWidgets.QLabel("Progress Page", alignment=QtCore.Qt.AlignCenter)
 
