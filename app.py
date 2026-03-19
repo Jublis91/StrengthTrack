@@ -6,6 +6,7 @@ from database import (
     save_user,
     get_user_profile,
     save_weight_entry,
+    save_test_entry,
     get_weight_entries,
     delete_weight_entry as db_delete_weight_entry,
     update_weight_entry as db_update_weight_entry,
@@ -157,9 +158,9 @@ class MainWindow(QtWidgets.QWidget):
         self.tests_button.clicked.connect(self.show_tests_page)
         self.workout_button.clicked.connect(self.show_workout_page)
         self.progress_button.clicked.connect(self.show_progress_page)
-
         self.save_profile_button.clicked.connect(self.save_profile)
         self.save_weight_button.clicked.connect(self.save_weight)
+        self.save_test_button.clicked.connect(self.save_test)
         self.delete_weight_button.clicked.connect(self.delete_weight_entry)
         self.edit_weight_button.clicked.connect(self.edit_weight_entry)
         self.update_weight_button.clicked.connect(self.update_weight_entry)
@@ -302,6 +303,26 @@ class MainWindow(QtWidgets.QWidget):
 
         self.load_weight_entries()
 
+    def save_test(self):
+        profile = get_user_profile()
+
+        if profile is None:
+            return
+        
+        user_id = profile[0]
+        entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
+        test_name = self.test_name_input.text()
+        result_value = float(self.test_result_input.text())
+        unit = self.test_unit_input.text()
+        note = self.test_comment_input.text()
+
+        save_test_entry(user_id, entry_date, test_name, result_value, unit, note)
+
+        self.test_name_input.clear()
+        self.test_result_input.clear()
+        self.test_unit_input.clear()
+        self.test_comment_input.clear()
+        self.test_date_input.setDate(QtCore.QDate.currentDate())
 
 if __name__ == "__main__":
     init_db()

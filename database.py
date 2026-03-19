@@ -123,3 +123,28 @@ def delete_weight_entry(entry_id):
 
     conn.commit()
     conn.close()
+
+def update_weight_entry(entry_id, entry_date, weight, note):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    UPDATE weight_entries
+    SET entry_date = ?, weight = ?, note = ?
+    WHERE id = ?
+    """, (entry_date, weight, note, entry_id))
+
+    conn.commit()
+    conn.close()
+
+def save_test_entry(user_id, entry_date, test_name, result_value, unit, note):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO fitness_tests (user_id, entry_date, test_name, result_value, unit, note)
+    VALUES (?, ?, ?, ?, ?, ?)
+    """, (user_id, entry_date, test_name, result_value, unit, note))
+
+    conn.commit()
+    conn.close()
