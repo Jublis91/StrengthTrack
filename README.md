@@ -7,7 +7,7 @@ The database uses SQLite and is stored in:
 data/strengthtrack.db
 ```
 
-The purpose of the database is to store user information, body weight tracking, and fitness test results.
+The purpose of the database is to store user information, body weight tracking, fitness test results, and workout exercises.
 
 ---
 
@@ -33,47 +33,7 @@ Example row:
 
 # Table: weight_entries
 
-Stores body weight history entries.
-
-| Column     | Type    | Required | Description                                           |
-| ---------- | ------- | -------- | ----------------------------------------------------- |
-| id         | INTEGER | Yes      | Primary key.                                          |
-| user_id    | INTEGER | Yes      | Reference to users.id.                                |
-| entry_date | TEXT    | Yes      | Date of weight entry. Format recommended: YYYY-MM-DD. |
-| weight     | REAL    | Yes      | Recorded body weight.                                 |
-| note       | TEXT    | No       | Optional comment about the entry.                     |
-
-Example row:
-
-| id | user_id | entry_date | weight | note           |
-| -- | ------- | ---------- | ------ | -------------- |
-| 1  | 1       | 2026-03-17 | 91.8   | Morning weight |
-
-Relationship:
-
-```
-weight_entries.user_id → users.id
-```
-
-Each user can have many weight entries.
-
----
-
-# Table: fitness_tests
-
-Stores fitness test results such as push ups, pull ups, or plank.
-
-| Column       | Type    | Required | Description                                         |
-| ------------ | ------- | -------- | --------------------------------------------------- |
-| id           | INTEGER | Yes      | Primary key.                                        |
-| user_id      | INTEGER | Yes      | Reference to users.id.                              |
-| entry_date   | TEXT    | Yes      | Date of the test. Format recommended: YYYY-MM-DD.   |
-| test_name    | TEXT    | Yes      | Name of the test. Example: Pushups, Pullups, Plank. |
-| result_value | REAL    | Yes      | Result of the test.                                 |
-| unit         | TEXT    | No       | Unit of the result. Example: reps, seconds.         |
-| note         | TEXT    | No       | Optional comment.                                   |
-
-Example row:
+@@ -77,43 +77,76 @@ Example row:
 
 | id | user_id | entry_date | test_name | result_value | unit | note      |
 | -- | ------- | ---------- | --------- | ------------ | ---- | --------- |
@@ -99,9 +59,44 @@ users
   │
   └── fitness_tests
           user_id → users.id
+
+workout_programs
+  │
+  └── workout_exercises
+          program_id → workout_programs.id
 ```
 
 One user can have multiple weight entries and multiple fitness test records.
+One workout program can have multiple workout exercises.
+
+---
+
+# Table: workout_exercises
+
+Stores exercises assigned to workout programs.
+
+| Column        | Type    | Required | Description                                       |
+| ------------- | ------- | -------- | ------------------------------------------------- |
+| id            | INTEGER | Yes      | Primary key.                                      |
+| program_id    | INTEGER | Yes      | Reference to workout_programs.id.                 |
+| day_name      | TEXT    | Yes      | Day label inside the program. Example: Monday.    |
+| exercise_name | TEXT    | Yes      | Name of the exercise.                             |
+| sets          | INTEGER | No       | Number of sets.                                   |
+| reps          | INTEGER | No       | Number of repetitions.                            |
+| extra_weight  | REAL    | No       | Additional load in kilograms or chosen unit.      |
+| note          | TEXT    | No       | Optional note for execution or progression detail.|
+
+Example row:
+
+| id | program_id | day_name | exercise_name | sets | reps | extra_weight | note           |
+| -- | ---------- | -------- | ------------- | ---- | ---- | ------------ | -------------- |
+| 1  | 1          | Monday   | Bench Press   | 4    | 8    | 60.0         | controlled tempo |
+
+Relationship:
+
+```
+workout_exercises.program_id → workout_programs.id
+```
 
 ---
 
@@ -109,11 +104,9 @@ One user can have multiple weight entries and multiple fitness test records.
 
 These tables will be added later during development:
 
-| Table             | Purpose                                  |
-| ----------------- | ---------------------------------------- |
-| workout_programs  | Stores workout program definitions       |
-| workout_exercises | Stores exercises inside workout programs |
-| workout_sessions  | Stores completed workout sessions        |
-| progress_metrics  | Calculated metrics for graphs            |
+| Table            | Purpose                           |
+| ---------------- | --------------------------------- |
+| workout_sessions | Stores completed workout sessions |
+| progress_metrics | Calculated metrics for graphs     |
 
 ---

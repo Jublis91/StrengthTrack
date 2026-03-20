@@ -56,6 +56,20 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS workout_exercises (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        program_id INTEGER NOT NULL,
+        day_name TEXT NOT NULL,
+        exercise_name TEXT NOT NULL,
+        sets INTEGER,
+        reps INTEGER,
+        extra_weight REAL,
+        note TEXT,
+        FOREIGN KEY(program_id) REFERENCES workout_programs(id)
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -205,3 +219,32 @@ def update_test_entry(entry_id, entry_date, test_name, result_value, unit, note)
 
     conn.commit()
     conn.close()
+    
+def save_workout_exercise(program_id, day_name, exercise_name, sets, reps, extra_weight, note):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO workout_exercises (program_id, day_name, exercise_name, sets, reps, extra_weight, note)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (program_id, day_name, exercise_name, sets, reps, extra_weight, note))
+
+    conn.commit()
+    conn.close()
+
+
+def get_workout_exercises(program_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT id, day_name, exercise_name, sets, reps, extra_weight, note
+    FROM workout_exercises
+    WHERE program_id = ?
+    ORDER BY day_name ASC, id ASC
+    """, (program_id,))
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
