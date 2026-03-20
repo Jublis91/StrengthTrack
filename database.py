@@ -64,13 +64,21 @@ def save_user(name, height_cm, start_weight, goal):
     conn = connect()
     cursor = conn.cursor()
 
-    cursor.execute("""
-    INSERT INTO users (name, height_cm, start_weight, goal)
-    VALUES (?, ?, ?, ?)
-    """, (name, height_cm, start_weight, goal))
+    cursor.execute("SELECT id FROM users ORDER BY id ASC LIMIT 1")
+    existing = cursor.fetchone()
 
-    conn.commit()
-    conn.close()
+    if existing is None:
+        cursor.execute("""
+        INSERT INTO users (name, height_cm, start_weight, goal)
+        VALUES (?, ?, ?, ?)
+        """, (name, height_cm, start_weight, goal))
+    else:
+        cursor.execute("""
+        UPDATE users
+        SET name = ?, height_cm = ?, start_weight = ?, goal = ?
+        WHERE id = ?
+        """, (name, height_cm, start_weight, goal, existing[0]))
+
 
 
 def get_user_profile():

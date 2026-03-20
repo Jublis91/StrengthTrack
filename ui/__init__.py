@@ -1,0 +1,1 @@
+"""StrengthTrack application package."""
