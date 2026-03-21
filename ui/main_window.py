@@ -1,18 +1,28 @@
 from __future__ import annotations
 
-from typing import Optional
+import csv
 
+from typing import Optional
 from PySide6 import QtCore, QtWidgets
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+from matplotlib.figure import Figure
+
 
 from database import (
     delete_test_entry as db_delete_test_entry,
     delete_weight_entry as db_delete_weight_entry,
     get_test_entries,
+    get_test_entries_for_name,
     get_user_profile,
     get_weight_entries,
+    get_weight_entries_asc,
+    get_workout_exercises,
+    get_workout_programs,
     save_test_entry,
     save_user,
     save_weight_entry,
+    save_workout_exercise,
+    save_workout_program,
     update_test_entry as db_update_test_entry,
     update_weight_entry as db_update_weight_entry,
 )
@@ -25,6 +35,7 @@ class MainWindow(QtWidgets.QWidget):
 
         self.editing_weight_entry_id: Optional[int] = None
         self.editing_test_entry_id: Optional[int] = None
+        self.selected_program_id: Optional[int] = None
 
         self._create_inputs()
         self._create_buttons()
@@ -50,9 +61,22 @@ class MainWindow(QtWidgets.QWidget):
         self.test_result_input = QtWidgets.QLineEdit()
         self.test_unit_input = QtWidgets.QLineEdit()
         self.test_comment_input = QtWidgets.QLineEdit()
+        self.program_name_input = QtWidgets.QLineEdit()
+        self.exercise_day_input = QtWidgets.QLineEdit()
+        self.exercise_name_input = QtWidgets.QLineEdit()
+        self.exercise_sets_input = QtWidgets.QLineEdit()
+        self.exercise_reps_input = QtWidgets.QLineEdit()
+        self.exercise_extra_weight_input = QtWidgets.QLineEdit()
+        self.exercise_note_input = QtWidgets.QLineEdit()
 
         self.test_results_list = QtWidgets.QListWidget()
         self.weight_table = QtWidgets.QTableWidget()
+        self.program_list = QtWidgets.QListWidget()
+        self.exercise_list = QtWidgets.QListWidget()
+
+        self.progress_test_selector = QtWidgets.QComboBox()
+        self.progress_test_selector.addItems(["punnerrukset", "leuanvedot", "lankku", "kyykyt", "muu"])
+
 
         self.weight_date_input.setCalendarPopup(True)
         self.weight_date_input.setDate(QtCore.QDate.currentDate())
@@ -60,28 +84,37 @@ class MainWindow(QtWidgets.QWidget):
         self.test_date_input.setDate(QtCore.QDate.currentDate())
 
     def _create_buttons(self) -> None:
-        self.home_button = QtWidgets.QPushButton("Front page")
-        self.profile_button = QtWidgets.QPushButton("Profile")
-        self.weight_button = QtWidgets.QPushButton("Weight")
-        self.tests_button = QtWidgets.QPushButton("Tests")
-        self.workout_button = QtWidgets.QPushButton("Workout")
-        self.progress_button = QtWidgets.QPushButton("Progress")
+        self.home_button = QtWidgets.QPushButton("Etusivu")
+        self.profile_button = QtWidgets.QPushButton("Profiili")
+        self.weight_button = QtWidgets.QPushButton("Paino")
+        self.tests_button = QtWidgets.QPushButton("Testit")
+        self.workout_button = QtWidgets.QPushButton("Treeniohjelmat")
+        self.progress_button = QtWidgets.QPushButton("Kehitys")
 
-        self.save_profile_button = QtWidgets.QPushButton("Save profile")
-        self.save_weight_button = QtWidgets.QPushButton("Save weight")
-        self.save_test_button = QtWidgets.QPushButton("Save test")
+        self.save_profile_button = QtWidgets.QPushButton("Tallenna profiili")
+        self.save_weight_button = QtWidgets.QPushButton("Tallenna paino")
+        self.save_test_button = QtWidgets.QPushButton("Tallenna testi")
+        self.save_program_button = QtWidgets.QPushButton("Luo ohjelma")
+        self.save_exercise_button = QtWidgets.QPushButton("Lisää liike")
 
-        self.delete_weight_button = QtWidgets.QPushButton("Delete selected weight")
-        self.delete_test_button = QtWidgets.QPushButton("Delete selected test")
-        self.edit_weight_button = QtWidgets.QPushButton("Edit selected weight")
-        self.update_weight_button = QtWidgets.QPushButton("Update weight")
-        self.edit_test_button = QtWidgets.QPushButton("Edit selected test")
-        self.update_test_button = QtWidgets.QPushButton("Update test")
+        self.delete_weight_button = QtWidgets.QPushButton("Poista valittu paino")
+        self.delete_test_button = QtWidgets.QPushButton("Poista valittu testi")
+        self.edit_weight_button = QtWidgets.QPushButton("Muokkaa valittua painoa")
+        self.update_weight_button = QtWidgets.QPushButton("Päivitä paino")
+        self.edit_test_button = QtWidgets.QPushButton("Muokkaa valittua testiä")
+        self.update_test_button = QtWidgets.QPushButton("Päivitä testi")
+
+        self.refresh_graphs_button = QtWidgets.QPushButton("Päivitä graafit")
+        self.export_weight_csv_button = QtWidgets.QPushButton("Vie painodata CSV")
+        self.export_tests_csv_button = QtWidgets.QPushButton("Vie testidata CSV")
+
 
     def _create_pages(self) -> None:
-        self.home_label = QtWidgets.QLabel("No profile found")
+        self.home_label = QtWidgets.QLabel("Profiilia ei löytynyt")
         self.home_label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         self.home_label.setWordWrap(True)
+
+        self.selected_program_label = QtWidgets.QLabel("Valittu ohjelma: ei valintaa")
 
         self._configure_weight_table()
 
@@ -108,12 +141,21 @@ class MainWindow(QtWidgets.QWidget):
         tests_page_layout.addWidget(self.edit_test_button)
         tests_page_layout.addWidget(self.update_test_button)
         tests_page_layout.addWidget(self.delete_test_button)
-        tests_page_layout.addWidget(QtWidgets.QLabel("Test results"))
+        tests_page_layout.addWidget(QtWidgets.QLabel("Testitulokset"))
         tests_page_layout.addWidget(self.test_results_list)
         self.tests_page.setLayout(tests_page_layout)
 
-        self.workout_page = QtWidgets.QLabel("Workout Page", alignment=QtCore.Qt.AlignCenter)
-        self.progress_page = QtWidgets.QLabel("Progress Page", alignment=QtCore.Qt.AlignCenter)
+        self.workout_page = QtWidgets.QWidget()
+        self.workout_page.setLayout(self._build_workout_layout())
+
+        self.weight_figure = Figure(figsize=(5, 3))
+        self.weight_canvas = FigureCanvasQTAgg(self.weight_figure)
+        self.test_figure = Figure(figsize=(5, 3))
+        self.test_canvas = FigureCanvasQTAgg(self.test_figure)
+
+        self.progress_page = QtWidgets.QWidget()
+        self.progress_page.setLayout(self._build_progress_layout())
+
 
         self.pages = QtWidgets.QStackedWidget()
         self.pages.addWidget(self.home_page)
@@ -127,30 +169,76 @@ class MainWindow(QtWidgets.QWidget):
 
     def _build_profile_form(self) -> QtWidgets.QFormLayout:
         form_layout = QtWidgets.QFormLayout()
-        form_layout.addRow(QtWidgets.QLabel("Name"), self.name_input)
-        form_layout.addRow(QtWidgets.QLabel("Height (cm)"), self.height_input)
-        form_layout.addRow(QtWidgets.QLabel("Start weight (kg)"), self.start_weight_input)
-        form_layout.addRow(QtWidgets.QLabel("Goal"), self.goal_input)
+        form_layout.addRow(QtWidgets.QLabel("Nimi"), self.name_input)
+        form_layout.addRow(QtWidgets.QLabel("Pituus (cm)"), self.height_input)
+        form_layout.addRow(QtWidgets.QLabel("Aloituspaino (kg)"), self.start_weight_input)
+        form_layout.addRow(QtWidgets.QLabel("Tavoite"), self.goal_input)
         form_layout.addRow(self.save_profile_button)
         return form_layout
 
     def _build_weight_form(self) -> QtWidgets.QFormLayout:
         weight_form_layout = QtWidgets.QFormLayout()
-        weight_form_layout.addRow(QtWidgets.QLabel("Date"), self.weight_date_input)
-        weight_form_layout.addRow(QtWidgets.QLabel("Weight (kg)"), self.weight_input)
-        weight_form_layout.addRow(QtWidgets.QLabel("Comment"), self.weight_note_input)
+        weight_form_layout.addRow(QtWidgets.QLabel("Päivä"), self.weight_date_input)
+        weight_form_layout.addRow(QtWidgets.QLabel("Paino (kg)"), self.weight_input)
+        weight_form_layout.addRow(QtWidgets.QLabel("Huomio"), self.weight_note_input)
         weight_form_layout.addRow(self.save_weight_button)
         return weight_form_layout
 
     def _build_tests_form(self) -> QtWidgets.QFormLayout:
         tests_form_layout = QtWidgets.QFormLayout()
-        tests_form_layout.addRow(QtWidgets.QLabel("Date"), self.test_date_input)
-        tests_form_layout.addRow(QtWidgets.QLabel("Test name"), self.test_name_input)
-        tests_form_layout.addRow(QtWidgets.QLabel("Result"), self.test_result_input)
-        tests_form_layout.addRow(QtWidgets.QLabel("Unit"), self.test_unit_input)
-        tests_form_layout.addRow(QtWidgets.QLabel("Comment"), self.test_comment_input)
+        tests_form_layout.addRow(QtWidgets.QLabel("Päivä"), self.test_date_input)
+        tests_form_layout.addRow(QtWidgets.QLabel("Testi"), self.test_name_input)
+        tests_form_layout.addRow(QtWidgets.QLabel("Tulos"), self.test_result_input)
+        tests_form_layout.addRow(QtWidgets.QLabel("Yksikkö"), self.test_unit_input)
+        tests_form_layout.addRow(QtWidgets.QLabel("Huomio"), self.test_comment_input)
         tests_form_layout.addRow(self.save_test_button)
         return tests_form_layout
+    
+    def _build_workout_form(self) -> QtWidgets.QFormLayout:
+        workout_form_layout = QtWidgets.QFormLayout()
+        workout_form_layout.addRow(QtWidgets.QLabel("Program name"), self.program_name_input)
+        workout_form_layout.addRow(self.save_program_button)
+        return workout_form_layout
+    
+    def _build_workout_layout(self) -> QtWidgets.QVBoxLayout:
+        layout = QtWidgets.QVBoxLayout()
+
+        program_form = QtWidgets.QFormLayout()
+        program_form.addRow(QtWidgets.QLabel("Ohjelman nimi"), self.program_name_input)
+        program_form.addRow(self.save_program_button)
+
+        exercise_form = QtWidgets.QFormLayout()
+        exercise_form.addRow(QtWidgets.QLabel("Päivä"), self.exercise_day_input)
+        exercise_form.addRow(QtWidgets.QLabel("Liike"), self.exercise_name_input)
+        exercise_form.addRow(QtWidgets.QLabel("Sarjat"), self.exercise_sets_input)
+        exercise_form.addRow(QtWidgets.QLabel("Toistot"), self.exercise_reps_input)
+        exercise_form.addRow(QtWidgets.QLabel("Lisäpaino"), self.exercise_extra_weight_input)
+        exercise_form.addRow(QtWidgets.QLabel("Huomio"), self.exercise_note_input)
+        exercise_form.addRow(self.save_exercise_button)
+
+        layout.addLayout(program_form)
+        layout.addWidget(QtWidgets.QLabel("Treeniohjelmat"))
+        layout.addWidget(self.program_list)
+        layout.addWidget(self.selected_program_label)
+        layout.addLayout(exercise_form)
+        layout.addWidget(QtWidgets.QLabel("Ohjelman liikkeet"))
+        layout.addWidget(self.exercise_list)
+
+        return layout
+
+    def _build_progress_layout(self) -> QtWidgets.QVBoxLayout:
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(QtWidgets.QLabel("Painokehitys"))
+        layout.addWidget(self.weight_canvas)
+        layout.addWidget(QtWidgets.QLabel("Testituloksen kehitys"))
+        layout.addWidget(self.progress_test_selector)
+        layout.addWidget(self.test_canvas)
+        layout.addWidget(self.refresh_graphs_button)
+        layout.addWidget(self.export_weight_csv_button)
+        layout.addWidget(self.export_tests_csv_button)
+        layout.addStretch()
+        return layout
+
 
     def _build_main_layout(self) -> QtWidgets.QHBoxLayout:
         menu_layout = QtWidgets.QVBoxLayout()
@@ -164,16 +252,16 @@ class MainWindow(QtWidgets.QWidget):
 
         menu_widget = QtWidgets.QWidget()
         menu_widget.setLayout(menu_layout)
-        menu_widget.setFixedWidth(120)
+        menu_widget.setFixedWidth(160)
 
         main_layout = QtWidgets.QHBoxLayout()
         main_layout.addWidget(menu_widget, 1)
-        main_layout.addWidget(self.pages, 3)
+        main_layout.addWidget(self.pages, 4)
         return main_layout
 
     def _configure_weight_table(self) -> None:
         self.weight_table.setColumnCount(4)
-        self.weight_table.setHorizontalHeaderLabels(["ID", "Date", "Weight (kg)", "Comment"])
+        self.weight_table.setHorizontalHeaderLabels(["ID", "Päivä", "Paino (kg)", "Huomio"])
         self.weight_table.hideColumn(0)
         self.weight_table.horizontalHeader().setStretchLastSection(True)
         self.weight_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
@@ -185,12 +273,13 @@ class MainWindow(QtWidgets.QWidget):
         self.profile_button.clicked.connect(self.show_profile_page)
         self.weight_button.clicked.connect(self.show_weight_page)
         self.tests_button.clicked.connect(self.show_tests_page)
-        self.workout_button.clicked.connect(self.show_workout_page)
-        self.progress_button.clicked.connect(self.show_progress_page)
+        self.save_program_button.clicked.connect(self.save_program)
+        self.save_exercise_button.clicked.connect(self.save_exercise)
 
         self.save_profile_button.clicked.connect(self.save_profile)
         self.save_weight_button.clicked.connect(self.save_weight)
         self.save_test_button.clicked.connect(self.save_test)
+        self.save_program_button.clicked.connect(self.save_program)
 
         self.delete_test_button.clicked.connect(self.delete_test_entry)
         self.delete_weight_button.clicked.connect(self.delete_weight_entry)
@@ -199,19 +288,47 @@ class MainWindow(QtWidgets.QWidget):
         self.edit_test_button.clicked.connect(self.edit_test_entry)
         self.update_test_button.clicked.connect(self.update_test_entry)
 
-    def _show_validation_error(self, message: str) -> None:
-        QtWidgets.QMessageBox.warning(self, "Invalid input", message)
+        self.program_list.itemSelectionChanged.connect(self.select_program)
 
-    def _parse_float(self, field: QtWidgets.QLineEdit, label: str) -> Optional[float]:
+        self.refresh_graphs_button.clicked.connect(self.refresh_graphs)
+        self.progress_test_selector.currentTextChanged.connect(self.refresh_test_graph)
+        self.export_weight_csv_button.clicked.connect(self.export_weight_csv)
+        self.export_tests_csv_button.clicked.connect(self.export_tests_csv)
+
+
+    def _show_validation_error(self, message: str) -> None:
+        QtWidgets.QMessageBox.warning(self, "Virheellinen syöte", message)
+
+    def _show_success(self, message: str) -> None:
+        QtWidgets.QMessageBox.information(self, "Onnistui", message)
+
+
+    def _parse_float(self, field: QtWidgets.QLineEdit, label: str, required: bool = True) -> Optional[float]:
         text = field.text().strip()
         if not text:
-            self._show_validation_error(f"{label} is required.")
+            if required:
+                self._show_validation_error(f"{label} on pakollinen.")
+
             return None
 
         try:
             return float(text)
         except ValueError:
-            self._show_validation_error(f"{label} must be a number.")
+            self._show_validation_error(f"{label} täytyy olla numero.")
+            return None
+
+    def _parse_int(self, field: QtWidgets.QLineEdit, label: str, required: bool = True) -> Optional[int]:
+        text = field.text().strip()
+        if not text:
+            if required:
+                self._show_validation_error(f"{label} on pakollinen.")
+            return None
+
+        try:
+            return int(text)
+        except ValueError:
+            self._show_validation_error(f"{label} täytyy olla kokonaisluku.")
+
             return None
 
     def show_front_page(self) -> None:
@@ -230,9 +347,11 @@ class MainWindow(QtWidgets.QWidget):
         self.pages.setCurrentWidget(self.tests_page)
 
     def show_workout_page(self) -> None:
+        self.load_programs()
         self.pages.setCurrentWidget(self.workout_page)
 
     def show_progress_page(self) -> None:
+        self.refresh_graphs()
         self.pages.setCurrentWidget(self.progress_page)
 
     def save_profile(self) -> None:
@@ -240,7 +359,7 @@ class MainWindow(QtWidgets.QWidget):
         goal = self.goal_input.text().strip()
 
         if not name:
-            self._show_validation_error("Name is required.")
+            self._show_validation_error("Nimi on pakollinen.")
             return
 
         height_cm = self._parse_float(self.height_input, "Height")
@@ -250,6 +369,7 @@ class MainWindow(QtWidgets.QWidget):
 
         save_user(name, height_cm, start_weight, goal)
         self.load_user_profile()
+        self._show_success("Profiili tallennettu.")
         self.pages.setCurrentWidget(self.home_page)
 
     def load_user_profile(self) -> None:
@@ -259,12 +379,43 @@ class MainWindow(QtWidgets.QWidget):
             return
 
         _, name, height_cm, start_weight, goal = profile
+        weight_change = self._get_latest_weight_change(profile[0])
+        test_change = self._get_latest_test_change(profile[0])
         self.home_label.setText(
-            f"Name: {name}\n"
-            f"Height: {height_cm} cm\n"
-            f"Start weight: {start_weight} kg\n"
-            f"Goal: {goal}"
+            f"Nimi: {name}\n"
+            f"Pituus: {height_cm} cm\n"
+            f"Aloituspaino: {start_weight} kg\n"
+            f"Tavoite: {goal}\n\n"
+            f"Viimeisin painomuutos: {weight_change}\n"
+            f"Viimeisin testimuutos: {test_change}"
+
         )
+
+    def _get_latest_weight_change(self, user_id: int) -> str:
+        rows = get_weight_entries(user_id)
+        if len(rows) < 2:
+            return "ei tarpeeksi dataa"
+        latest = rows[0][2]
+        previous = rows[1][2]
+        delta = latest - previous
+        sign = "+" if delta > 0 else ""
+        return f"{sign}{delta:.1f} kg"
+
+    def _get_latest_test_change(self, user_id: int) -> str:
+        rows = get_test_entries(user_id)
+        if not rows:
+            return "ei testituloksia"
+
+        latest = rows[0]
+        latest_test_name = latest[2]
+        same_test_rows = [r for r in rows if r[2] == latest_test_name]
+        if len(same_test_rows) < 2:
+            return f"{latest_test_name}: ei vertailudataa"
+
+        delta = same_test_rows[0][3] - same_test_rows[1][3]
+        sign = "+" if delta > 0 else ""
+        return f"{latest_test_name}: {sign}{delta:.1f}"
+
 
     def save_weight(self) -> None:
         profile = get_user_profile()
@@ -284,6 +435,9 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_input.clear()
         self.weight_note_input.clear()
         self.load_weight_entries()
+        self.load_user_profile()
+        self._show_success("Paino tallennettu.")
+
 
     def load_weight_entries(self) -> None:
         profile = get_user_profile()
@@ -312,6 +466,9 @@ class MainWindow(QtWidgets.QWidget):
 
         db_delete_weight_entry(int(item.text()))
         self.load_weight_entries()
+        self.load_user_profile()
+        self._show_success("Painomerkintä poistettu.")
+
 
     def edit_weight_entry(self) -> None:
         selected_row = self.weight_table.currentRow()
@@ -351,6 +508,9 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_note_input.clear()
         self.weight_date_input.setDate(QtCore.QDate.currentDate())
         self.load_weight_entries()
+        self.load_user_profile()
+        self._show_success("Painomerkintä päivitetty.")
+
 
     def save_test(self) -> None:
         profile = get_user_profile()
@@ -360,6 +520,11 @@ class MainWindow(QtWidgets.QWidget):
 
         result_value = self._parse_float(self.test_result_input, "Result")
         if result_value is None:
+            return
+        
+        unit = self.test_unit_input.text().strip()
+        if not unit:
+            self._show_validation_error("Yksikkö on pakollinen.")
             return
 
         user_id = profile[0]
@@ -376,6 +541,9 @@ class MainWindow(QtWidgets.QWidget):
         self.test_comment_input.clear()
         self.test_date_input.setDate(QtCore.QDate.currentDate())
         self.load_test_entries()
+        self.load_user_profile()
+        self._show_success("Testitulos tallennettu.")
+
 
     def load_test_entries(self) -> None:
         profile = get_user_profile()
@@ -413,6 +581,9 @@ class MainWindow(QtWidgets.QWidget):
 
         db_delete_test_entry(int(entry_id))
         self.load_test_entries()
+        self.load_user_profile()
+        self._show_success("Testitulos poistettu.")
+
 
     def edit_test_entry(self) -> None:
         selected_item = self.test_results_list.currentItem()
@@ -451,6 +622,12 @@ class MainWindow(QtWidgets.QWidget):
         result_value = self._parse_float(self.test_result_input, "Result")
         if result_value is None:
             return
+        
+        unit = self.test_unit_input.text().strip()
+        if not unit:
+            self._show_validation_error("Yksikkö on pakollinen.")
+            return
+
 
         entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
         test_name = self.test_name_input.currentText()
@@ -473,3 +650,215 @@ class MainWindow(QtWidgets.QWidget):
         self.test_comment_input.clear()
         self.test_date_input.setDate(QtCore.QDate.currentDate())
         self.load_test_entries()
+
+    def save_program(self) -> None:
+        program_name = self.program_name_input.text().strip()
+        if not program_name:
+            self._show_validation_error("Program name is required.")
+            return
+
+        save_workout_program(program_name)
+        self.program_name_input.clear()
+        self.load_workout_programs()
+
+    def load_workout_programs(self) -> None:
+        self.programs_list.clear()
+        for _, name, created_at in get_workout_programs():
+            self.programs_list.addItem(f"{name} ({created_at})")
+
+        self.load_user_profile()
+        self._show_success("Testitulos päivitetty.")
+
+    def save_program(self) -> None:
+        name = self.program_name_input.text().strip()
+        if not name:
+            self._show_validation_error("Ohjelman nimi on pakollinen.")
+            return
+
+        self.selected_program_id = save_workout_program(name)
+        self.program_name_input.clear()
+        self.load_programs()
+        self._show_success("Treeniohjelma luotu.")
+
+    def load_programs(self) -> None:
+        self.program_list.clear()
+        for program_id, name, created_at in get_workout_programs():
+            text = f"{name} ({created_at})"
+            item = QtWidgets.QListWidgetItem(text)
+            item.setData(QtCore.Qt.UserRole, program_id)
+            self.program_list.addItem(item)
+
+    def select_program(self) -> None:
+        item = self.program_list.currentItem()
+        if item is None:
+            self.selected_program_id = None
+            self.selected_program_label.setText("Valittu ohjelma: ei valintaa")
+            self.exercise_list.clear()
+            return
+
+        self.selected_program_id = int(item.data(QtCore.Qt.UserRole))
+        self.selected_program_label.setText(f"Valittu ohjelma: {item.text()}")
+        self.load_exercises_for_selected_program()
+
+    def save_exercise(self) -> None:
+        if self.selected_program_id is None:
+            self._show_validation_error("Valitse ensin treeniohjelma listasta.")
+            return
+
+        day_name = self.exercise_day_input.text().strip()
+        exercise_name = self.exercise_name_input.text().strip()
+        if not day_name or not exercise_name:
+            self._show_validation_error("Päivä ja liike ovat pakollisia.")
+            return
+
+        sets = self._parse_int(self.exercise_sets_input, "Sarjat")
+        reps = self._parse_int(self.exercise_reps_input, "Toistot")
+        extra_weight = self._parse_float(self.exercise_extra_weight_input, "Lisäpaino", required=False)
+        note = self.exercise_note_input.text().strip()
+        if sets is None or reps is None:
+            return
+
+        save_workout_exercise(
+            self.selected_program_id,
+            day_name,
+            exercise_name,
+            sets,
+            reps,
+            extra_weight,
+            note,
+        )
+
+        self.exercise_day_input.clear()
+        self.exercise_name_input.clear()
+        self.exercise_sets_input.clear()
+        self.exercise_reps_input.clear()
+        self.exercise_extra_weight_input.clear()
+        self.exercise_note_input.clear()
+
+        self.load_exercises_for_selected_program()
+        self._show_success("Liike lisätty ohjelmaan.")
+
+    def load_exercises_for_selected_program(self) -> None:
+        self.exercise_list.clear()
+        if self.selected_program_id is None:
+            return
+
+        rows = get_workout_exercises(self.selected_program_id)
+        for _, day_name, exercise_name, sets, reps, extra_weight, note in rows:
+            lisapaino_txt = f", lisäpaino {extra_weight}" if extra_weight is not None else ""
+            note_txt = f" ({note})" if note else ""
+            self.exercise_list.addItem(
+                f"{day_name}: {exercise_name}, {sets} x {reps}{lisapaino_txt}{note_txt}"
+            )
+
+    def refresh_graphs(self) -> None:
+        self.refresh_weight_graph()
+        self.refresh_test_graph()
+
+    def refresh_weight_graph(self) -> None:
+        self.weight_figure.clear()
+        ax = self.weight_figure.add_subplot(111)
+
+        profile = get_user_profile()
+        if profile is None:
+            ax.set_title("Ei profiilia")
+            self.weight_canvas.draw()
+            return
+
+        rows = get_weight_entries_asc(profile[0])
+        if not rows:
+            ax.set_title("Ei painodataa")
+            self.weight_canvas.draw()
+            return
+
+        dates = [row[0] for row in rows]
+        weights = [row[1] for row in rows]
+        ax.plot(dates, weights, marker="o")
+        ax.set_title("Painon kehitys")
+        ax.set_xlabel("Päivä")
+        ax.set_ylabel("Paino (kg)")
+        ax.tick_params(axis="x", rotation=45)
+        self.weight_figure.tight_layout()
+        self.weight_canvas.draw()
+
+    def refresh_test_graph(self) -> None:
+        self.test_figure.clear()
+        ax = self.test_figure.add_subplot(111)
+
+        profile = get_user_profile()
+        if profile is None:
+            ax.set_title("Ei profiilia")
+            self.test_canvas.draw()
+            return
+
+        test_name = self.progress_test_selector.currentText()
+        rows = get_test_entries_for_name(profile[0], test_name)
+        if not rows:
+            ax.set_title(f"Ei dataa testille: {test_name}")
+            self.test_canvas.draw()
+            return
+
+        dates = [row[0] for row in rows]
+        results = [row[1] for row in rows]
+        unit = rows[-1][2] or ""
+        ax.plot(dates, results, marker="o", color="green")
+        ax.set_title(f"{test_name} kehitys")
+        ax.set_xlabel("Päivä")
+        ax.set_ylabel(f"Tulos {unit}".strip())
+        ax.tick_params(axis="x", rotation=45)
+        self.test_figure.tight_layout()
+        self.test_canvas.draw()
+
+    def export_weight_csv(self) -> None:
+        profile = get_user_profile()
+        if profile is None:
+            self._show_validation_error("Profiilia ei löydy.")
+            return
+
+        rows = get_weight_entries(profile[0])
+        if not rows:
+            self._show_validation_error("Ei painodataa vietäväksi.")
+            return
+
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Tallenna painodata CSV",
+            "painodata.csv",
+            "CSV Files (*.csv)",
+        )
+        if not path:
+            return
+
+        with open(path, "w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["id", "paiva", "paino", "huomio"])
+            writer.writerows(rows)
+
+        self._show_success("Painodata vietiin CSV-tiedostoon.")
+
+    def export_tests_csv(self) -> None:
+        profile = get_user_profile()
+        if profile is None:
+            self._show_validation_error("Profiilia ei löydy.")
+            return
+
+        rows = get_test_entries(profile[0])
+        if not rows:
+            self._show_validation_error("Ei testidataa vietäväksi.")
+            return
+
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self,
+            "Tallenna testidata CSV",
+            "testidata.csv",
+            "CSV Files (*.csv)",
+        )
+        if not path:
+            return
+
+        with open(path, "w", newline="", encoding="utf-8") as file:
+            writer = csv.writer(file)
+            writer.writerow(["id", "paiva", "testi", "tulos", "yksikko", "huomio"])
+            writer.writerows(rows)
+
+        self._show_success("Testidata vietiin CSV-tiedostoon.")

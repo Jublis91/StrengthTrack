@@ -133,8 +133,31 @@ def get_weight_entries(user_id):
     SELECT id, entry_date, weight, note
     FROM weight_entries
     WHERE user_id = ?
-    ORDER BY entry_date DESC
-    """, (user_id,))
+    ORDER BY entry_date DESC, id DESC
+    """,
+        (user_id,),
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
+
+
+def get_weight_entries_asc(user_id):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+    SELECT entry_date, weight
+    FROM weight_entries
+    WHERE user_id = ?
+    ORDER BY entry_date ASC, id ASC
+    """,
+        (user_id,),
+    )
+
 
     rows = cursor.fetchall()
     conn.close()
@@ -195,6 +218,27 @@ def get_test_entries(user_id):
 
     return rows
 
+
+def get_test_entries_for_name(user_id, test_name):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+    SELECT entry_date, result_value, unit
+    FROM fitness_tests
+    WHERE user_id = ? AND test_name = ?
+    ORDER BY entry_date ASC, id ASC
+    """,
+        (user_id, test_name),
+    )
+
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
+
 def delete_test_entry(entry_id):
     conn = connect()
     cursor = conn.cursor()
@@ -219,7 +263,43 @@ def update_test_entry(entry_id, entry_date, test_name, result_value, unit, note)
 
     conn.commit()
     conn.close()
-    
+
+def save_workout_program(name):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+    INSERT INTO workout_programs (name)
+    VALUES (?)
+    """,
+        (name,),
+    )
+
+    program_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return program_id
+
+
+def get_workout_programs():
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+    SELECT id, name, created_at
+    FROM workout_programs
+    ORDER BY created_at DESC, id DESC
+    """
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return rows
+
+
 def save_workout_exercise(program_id, day_name, exercise_name, sets, reps, extra_weight, note):
     conn = connect()
     cursor = conn.cursor()
@@ -248,3 +328,33 @@ def get_workout_exercises(program_id):
     conn.close()
 
     return rows
+
+def save_workout_program(name):
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO workout_programs (name)
+    VALUES (?)
+    """, (name,))
+
+    conn.commit()
+    program_id = cursor.lastrowid
+    conn.close()
+    return program_id
+
+
+def get_workout_programs():
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT id, name, created_at
+    FROM workout_programs
+    ORDER BY created_at DESC, id DESC
+    """)
+
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
