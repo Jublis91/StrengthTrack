@@ -93,6 +93,9 @@ def save_user(name, height_cm, start_weight, goal):
         WHERE id = ?
         """, (name, height_cm, start_weight, goal, existing[0]))
 
+    conn.commit()
+    conn.close()
+
 
 
 def get_user_profile():
@@ -263,42 +266,6 @@ def update_test_entry(entry_id, entry_date, test_name, result_value, unit, note)
 
     conn.commit()
     conn.close()
-
-def save_workout_program(name):
-    conn = connect()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-    INSERT INTO workout_programs (name)
-    VALUES (?)
-    """,
-        (name,),
-    )
-
-    program_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return program_id
-
-
-def get_workout_programs():
-    conn = connect()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-    SELECT id, name, created_at
-    FROM workout_programs
-    ORDER BY created_at DESC, id DESC
-    """
-    )
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    return rows
-
 
 def save_workout_exercise(program_id, day_name, exercise_name, sets, reps, extra_weight, note):
     conn = connect()

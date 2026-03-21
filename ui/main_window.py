@@ -273,6 +273,8 @@ class MainWindow(QtWidgets.QWidget):
         self.profile_button.clicked.connect(self.show_profile_page)
         self.weight_button.clicked.connect(self.show_weight_page)
         self.tests_button.clicked.connect(self.show_tests_page)
+        self.workout_button.clicked.connect(self.show_workout_page)
+        self.progress_button.clicked.connect(self.show_progress_page)
         self.save_program_button.clicked.connect(self.save_program)
         self.save_exercise_button.clicked.connect(self.save_exercise)
 
@@ -650,21 +652,6 @@ class MainWindow(QtWidgets.QWidget):
         self.test_comment_input.clear()
         self.test_date_input.setDate(QtCore.QDate.currentDate())
         self.load_test_entries()
-
-    def save_program(self) -> None:
-        program_name = self.program_name_input.text().strip()
-        if not program_name:
-            self._show_validation_error("Program name is required.")
-            return
-
-        save_workout_program(program_name)
-        self.program_name_input.clear()
-        self.load_workout_programs()
-
-    def load_workout_programs(self) -> None:
-        self.programs_list.clear()
-        for _, name, created_at in get_workout_programs():
-            self.programs_list.addItem(f"{name} ({created_at})")
 
         self.load_user_profile()
         self._show_success("Testitulos päivitetty.")

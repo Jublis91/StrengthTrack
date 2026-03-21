@@ -110,3 +110,24 @@ These tables will be added later during development:
 | progress_metrics | Calculated metrics for graphs     |
 
 ---
+
+## Testidatan generointi
+
+Voit luoda nopeasti testidataa ajamalla erillisen skriptin:
+
+```bash
+python populate_test_data.py --clear
+```
+
+- `count` = lisättävien paino- ja testirivien määrä (valinnainen, oletus `50`)
+- `--clear` = tyhjentää vanhan datan ennen lisäystä
+- `--clear-only` = tyhjentää kaiken testidatan eikä luo uutta
+- `--seed` = valinnainen siemen satunnaisdatalle (oletus `42`)
+
+Esimerkiksi ilman tyhjennystä:
+
+```bash
+python populate_test_data.py 20
+python populate_test_data.py
+python populate_test_data.py --clear-only
+```
