@@ -279,7 +279,6 @@ class MainWindow(QtWidgets.QWidget):
         self.tests_button.clicked.connect(self.show_tests_page)
         self.workout_button.clicked.connect(self.show_workout_page)
         self.progress_button.clicked.connect(self.show_progress_page)
-        self.save_program_button.clicked.connect(self.save_program)
         self.save_exercise_button.clicked.connect(self.save_exercise)
 
         self.save_profile_button.clicked.connect(self.save_profile)
@@ -388,6 +387,7 @@ class MainWindow(QtWidgets.QWidget):
         weight_change = self._get_latest_weight_change(profile[0])
         test_change = self._get_latest_test_change(profile[0])
         bmi_text = self._get_latest_bmi(profile[0], height_cm)
+        bmi_change = self._get_latest_bmi_change(profile[0], height_cm)
         self.home_label.setText(
             f"Nimi: {name}\n"
             f"Pituus: {height_cm} cm\n"
