@@ -150,6 +150,8 @@ class MainWindow(QtWidgets.QWidget):
 
         self.weight_figure = Figure(figsize=(5, 3))
         self.weight_canvas = FigureCanvasQTAgg(self.weight_figure)
+        self.bmi_figure = Figure(figsize=(5, 3))
+        self.bmi_canvas = FigureCanvasQTAgg(self.bmi_figure)
         self.test_figure = Figure(figsize=(5, 3))
         self.test_canvas = FigureCanvasQTAgg(self.test_figure)
 
@@ -230,6 +232,8 @@ class MainWindow(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(QtWidgets.QLabel("Painokehitys"))
         layout.addWidget(self.weight_canvas)
+        layout.addWidget(QtWidgets.QLabel("BMI-kehitys"))
+        layout.addWidget(self.bmi_canvas)
         layout.addWidget(QtWidgets.QLabel("Testituloksen kehitys"))
         layout.addWidget(self.progress_test_selector)
         layout.addWidget(self.test_canvas)
@@ -383,12 +387,15 @@ class MainWindow(QtWidgets.QWidget):
         _, name, height_cm, start_weight, goal = profile
         weight_change = self._get_latest_weight_change(profile[0])
         test_change = self._get_latest_test_change(profile[0])
+        bmi_text = self._get_latest_bmi(profile[0], height_cm)
         self.home_label.setText(
             f"Nimi: {name}\n"
             f"Pituus: {height_cm} cm\n"
             f"Aloituspaino: {start_weight} kg\n"
             f"Tavoite: {goal}\n\n"
+            f"Nykyinen BMI: {bmi_text}\n"
             f"Viimeisin painomuutos: {weight_change}\n"
+            f"Viimeisin BMI-muutos: {bmi_change}\n"
             f"Viimeisin testimuutos: {test_change}"
 
         )
@@ -418,6 +425,34 @@ class MainWindow(QtWidgets.QWidget):
         sign = "+" if delta > 0 else ""
         return f"{latest_test_name}: {sign}{delta:.1f}"
 
+    def _calculate_bmi(self, weight_kg: float, height_cm: float) -> float:
+        height_m = height_cm / 100
+        return weight_kg / (height_m * height_m)
+
+    def _get_latest_bmi(self, user_id: int, height_cm: float) -> str:
+        if height_cm <= 0:
+            return "ei saatavilla"
+
+        rows = get_weight_entries(user_id)
+        if not rows:
+            return "ei painodataa"
+
+        bmi_value = self._calculate_bmi(rows[0][2], height_cm)
+        return f"{bmi_value:.1f}"
+
+    def _get_latest_bmi_change(self, user_id: int, height_cm: float) -> str:
+        if height_cm <= 0:
+            return "ei saatavilla"
+
+        rows = get_weight_entries(user_id)
+        if len(rows) < 2:
+            return "ei tarpeeksi dataa"
+
+        latest_bmi = self._calculate_bmi(rows[0][2], height_cm)
+        previous_bmi = self._calculate_bmi(rows[1][2], height_cm)
+        delta = latest_bmi - previous_bmi
+        sign = "+" if delta > 0 else ""
+        return f"{sign}{delta:.1f}"
 
     def save_weight(self) -> None:
         profile = get_user_profile()
@@ -740,6 +775,7 @@ class MainWindow(QtWidgets.QWidget):
 
     def refresh_graphs(self) -> None:
         self.refresh_weight_graph()
+        self.refresh_bmi_graph()
         self.refresh_test_graph()
 
     def refresh_weight_graph(self) -> None:
@@ -795,6 +831,38 @@ class MainWindow(QtWidgets.QWidget):
         ax.tick_params(axis="x", rotation=45)
         self.test_figure.tight_layout()
         self.test_canvas.draw()
+
+    def refresh_bmi_graph(self) -> None:
+        self.bmi_figure.clear()
+        ax = self.bmi_figure.add_subplot(111)
+
+        profile = get_user_profile()
+        if profile is None:
+            ax.set_title("Ei profiilia")
+            self.bmi_canvas.draw()
+            return
+
+        height_cm = profile[2]
+        if height_cm <= 0:
+            ax.set_title("Virheellinen pituus")
+            self.bmi_canvas.draw()
+            return
+
+        rows = get_weight_entries_asc(profile[0])
+        if not rows:
+            ax.set_title("Ei painodataa BMI:lle")
+            self.bmi_canvas.draw()
+            return
+
+        dates = [row[0] for row in rows]
+        bmi_values = [self._calculate_bmi(row[1], height_cm) for row in rows]
+        ax.plot(dates, bmi_values, marker="o", color="purple")
+        ax.set_title("BMI kehitys")
+        ax.set_xlabel("Päivä")
+        ax.set_ylabel("BMI")
+        ax.tick_params(axis="x", rotation=45)
+        self.bmi_figure.tight_layout()
+        self.bmi_canvas.draw()
 
     def export_weight_csv(self) -> None:
         profile = get_user_profile()
