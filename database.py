@@ -1,16 +1,28 @@
 import sqlite3
 from pathlib import Path
 
+# Tietokanta tiedostoineen tallennetaan projektin data-kansioon.
+# Path-oliota käytetään, jotta polkukäsittely toimii luotettavasti eri käyttöjärjestelmissä.
+
+
 DB_PATH = Path("data/strengthtrack.db")
 
 
 def connect():
+    """Avaa SQLite-yhteyden ja varmistaa, että data-kansio on olemassa."""
     DB_PATH.parent.mkdir(exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     return conn
 
 
 def init_db():
+    """
+    Luo sovelluksen kaikki taulut, jos niitä ei vielä ole.
+
+    Tätä kutsutaan sovelluksen käynnistyksessä, jotta UI voi olettaa
+    taulujen olevan aina valmiina CRUD-toimintoja varten.
+    """
+
     conn = connect()
     cursor = conn.cursor()
 
@@ -75,6 +87,13 @@ def init_db():
 
 
 def save_user(name, height_cm, start_weight, goal):
+    """
+    Tallentaa profiilin.
+
+    Sovellus tukee yhtä aktiivista käyttäjää: jos profiili löytyy, päivitetään se;
+    muuten luodaan uusi rivi.
+    """
+
     conn = connect()
     cursor = conn.cursor()
 
@@ -99,6 +118,7 @@ def save_user(name, height_cm, start_weight, goal):
 
 
 def get_user_profile():
+    """Palauttaa ensimmäisen käyttäjäprofiilin tai None, jos profiilia ei ole."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -116,6 +136,7 @@ def get_user_profile():
 
 
 def save_weight_entry(user_id, entry_date, weight, note):
+    """Lisää yhden painomerkinnän annetulle käyttäjälle."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -129,6 +150,12 @@ def save_weight_entry(user_id, entry_date, weight, note):
 
 
 def get_weight_entries(user_id):
+    """
+    Hakee käyttäjän painomerkinnät uusimmasta vanhimpaan.
+
+    Tätä järjestystä käytetään listausnäkymissä sekä viimeisimmän muutoksen laskennassa.
+    """
+
     conn = connect()
     cursor = conn.cursor()
 
@@ -148,6 +175,7 @@ def get_weight_entries(user_id):
 
 
 def get_weight_entries_asc(user_id):
+    """Hakee painomerkinnät aikajärjestyksessä (vanhin -> uusin) graafeja varten."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -169,6 +197,7 @@ def get_weight_entries_asc(user_id):
 
 
 def delete_weight_entry(entry_id):
+    """Poistaa yhden painomerkinnän id:n perusteella."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -181,6 +210,7 @@ def delete_weight_entry(entry_id):
     conn.close()
 
 def update_weight_entry(entry_id, entry_date, weight, note):
+    """Päivittää olemassa olevan painomerkinnän tiedot."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -194,6 +224,7 @@ def update_weight_entry(entry_id, entry_date, weight, note):
     conn.close()
 
 def save_test_entry(user_id, entry_date, test_name, result_value, unit, note):
+    """Lisää uuden testituloksen (esim. punnerrukset, leuanvedot)."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -206,6 +237,7 @@ def save_test_entry(user_id, entry_date, test_name, result_value, unit, note):
     conn.close()
 
 def get_test_entries(user_id):
+    """Hakee testitulokset uusimmasta vanhimpaan testilistaa varten."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -223,6 +255,7 @@ def get_test_entries(user_id):
 
 
 def get_test_entries_for_name(user_id, test_name):
+    """Hakee vain yhden testityypin tulokset aikajärjestyksessä kehitysgraafia varten."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -243,6 +276,7 @@ def get_test_entries_for_name(user_id, test_name):
     return rows
 
 def delete_test_entry(entry_id):
+    """Poistaa yhden testituloksen id:n perusteella."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -255,6 +289,7 @@ def delete_test_entry(entry_id):
     conn.close()
 
 def update_test_entry(entry_id, entry_date, test_name, result_value, unit, note):
+    """Päivittää olemassa olevan testituloksen tiedot."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -268,6 +303,7 @@ def update_test_entry(entry_id, entry_date, test_name, result_value, unit, note)
     conn.close()
 
 def save_workout_exercise(program_id, day_name, exercise_name, sets, reps, extra_weight, note):
+    """Lisää liikkeen tiettyyn treeniohjelmaan ja päivään."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -281,6 +317,7 @@ def save_workout_exercise(program_id, day_name, exercise_name, sets, reps, extra
 
 
 def get_workout_exercises(program_id):
+    """Hakee ohjelman liikkeet päiväjärjestyksessä UI-listaa varten."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -297,6 +334,7 @@ def get_workout_exercises(program_id):
     return rows
 
 def save_workout_program(name):
+    """Luo uuden treeniohjelman ja palauttaa syntyneen ohjelman id:n."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -312,6 +350,7 @@ def save_workout_program(name):
 
 
 def get_workout_programs():
+    """Hakee kaikki treeniohjelmat uusimmasta vanhimpaan."""
     conn = connect()
     cursor = conn.cursor()
 
@@ -324,4 +363,3 @@ def get_workout_programs():
     rows = cursor.fetchall()
     conn.close()
     return rows
-

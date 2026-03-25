@@ -29,23 +29,39 @@ from database import (
 
 
 class MainWindow(QtWidgets.QWidget):
+    """
+    Sovelluksen pääikkuna.
+
+    Luokka rakentaa koko käyttöliittymän, yhdistää napit toimintoihin,
+    käsittelee syötteiden validoinnin ja keskustelee database-moduulin kanssa.
+    """
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("StrengthTrack")
+        # Muokkaustila: näihin tallennetaan valitun rivin id, kun käyttäjä
+        # painaa "Muokkaa"-painiketta. Päivitys käyttää tätä id:tä.
 
         self.editing_weight_entry_id: Optional[int] = None
         self.editing_test_entry_id: Optional[int] = None
+        # Valitun treeniohjelman id, jota käytetään liikkeiden lisäyksessä/listauksessa.
         self.selected_program_id: Optional[int] = None
+
+        # Käynnistysjärjestys:
+        # 1) luodaan kentät ja widgetit
+        # 2) luodaan sivut/layoutit
+        # 3) yhdistetään signaalit metodeihin
 
         self._create_inputs()
         self._create_buttons()
         self._create_pages()
         self._connect_signals()
 
+        # Etusivu avataan oletuksena ja siihen ladataan profiilin tilanne.
         self.pages.setCurrentWidget(self.home_page)
         self.load_user_profile()
 
     def _create_inputs(self) -> None:
+        """Luo kaikki syötekentät ja datan esityswidgetit eri sivuille."""
         self.name_input = QtWidgets.QLineEdit()
         self.height_input = QtWidgets.QLineEdit()
         self.start_weight_input = QtWidgets.QLineEdit()
@@ -84,6 +100,7 @@ class MainWindow(QtWidgets.QWidget):
         self.test_date_input.setDate(QtCore.QDate.currentDate())
 
     def _create_buttons(self) -> None:
+        """Luo navigointi- ja toimintopainikkeet."""
         self.home_button = QtWidgets.QPushButton("Etusivu")
         self.profile_button = QtWidgets.QPushButton("Profiili")
         self.weight_button = QtWidgets.QPushButton("Paino")
@@ -110,6 +127,7 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def _create_pages(self) -> None:
+        """Kokoaa sivut (home/profile/weight/tests/workout/progress) stacked-widgetiin."""
         self.home_label = QtWidgets.QLabel("Profiilia ei löytynyt")
         self.home_label.setAlignment(QtCore.Qt.AlignTop | QtCore.Qt.AlignLeft)
         self.home_label.setWordWrap(True)
@@ -264,6 +282,7 @@ class MainWindow(QtWidgets.QWidget):
         return main_layout
 
     def _configure_weight_table(self) -> None:
+        """Asettaa painotaulukon sarakkeet, valintatavan ja muokkausrajoitukset."""
         self.weight_table.setColumnCount(4)
         self.weight_table.setHorizontalHeaderLabels(["ID", "Päivä", "Paino (kg)", "Huomio"])
         self.weight_table.hideColumn(0)
@@ -273,6 +292,7 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_table.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
     def _connect_signals(self) -> None:
+        """Kytkee nappien/signaalien tapahtumat niitä käsitteleviin metodeihin."""
         self.home_button.clicked.connect(self.show_front_page)
         self.profile_button.clicked.connect(self.show_profile_page)
         self.weight_button.clicked.connect(self.show_weight_page)
@@ -302,13 +322,16 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def _show_validation_error(self, message: str) -> None:
+        """Näyttää käyttäjälle syöte- tai validointivirheen."""
         QtWidgets.QMessageBox.warning(self, "Virheellinen syöte", message)
 
     def _show_success(self, message: str) -> None:
+        """Näyttää onnistumisviestin käyttäjälle."""
         QtWidgets.QMessageBox.information(self, "Onnistui", message)
 
 
     def _parse_float(self, field: QtWidgets.QLineEdit, label: str, required: bool = True) -> Optional[float]:
+        """Muuntaa tekstikentän sisällön liukuluvuksi ja validioi syötteen."""
         text = field.text().strip()
         if not text:
             if required:
@@ -323,6 +346,7 @@ class MainWindow(QtWidgets.QWidget):
             return None
 
     def _parse_int(self, field: QtWidgets.QLineEdit, label: str, required: bool = True) -> Optional[int]:
+        """Muuntaa tekstikentän sisällön kokonaisluvuksi ja validioi syötteen."""
         text = field.text().strip()
         if not text:
             if required:
@@ -360,6 +384,7 @@ class MainWindow(QtWidgets.QWidget):
         self.pages.setCurrentWidget(self.progress_page)
 
     def save_profile(self) -> None:
+        """Tallentaa profiilitiedot tietokantaan ja päivittää etusivun yhteenvedon."""
         name = self.name_input.text().strip()
         goal = self.goal_input.text().strip()
 
@@ -378,6 +403,12 @@ class MainWindow(QtWidgets.QWidget):
         self.pages.setCurrentWidget(self.home_page)
 
     def load_user_profile(self) -> None:
+        """
+        Lataa profiilin etusivulle.
+
+        Lisäksi laskee yhteenvetorivit (painomuutos, BMI, testimuutos), jotta
+        käyttäjä näkee heti viimeisimmän tilanteen yhdellä silmäyksellä.
+        """
         profile = get_user_profile()
         if profile is None:
             self.home_label.setText("No profile saved yet.")
@@ -401,6 +432,7 @@ class MainWindow(QtWidgets.QWidget):
         )
 
     def _get_latest_weight_change(self, user_id: int) -> str:
+        """Laskee kahden viimeisimmän painomerkinnän erotuksen."""
         rows = get_weight_entries(user_id)
         if len(rows) < 2:
             return "ei tarpeeksi dataa"
@@ -411,6 +443,7 @@ class MainWindow(QtWidgets.QWidget):
         return f"{sign}{delta:.1f} kg"
 
     def _get_latest_test_change(self, user_id: int) -> str:
+        """Laskee uusimman testityypin muutoksen edelliseen saman testin tulokseen."""
         rows = get_test_entries(user_id)
         if not rows:
             return "ei testituloksia"
@@ -426,6 +459,7 @@ class MainWindow(QtWidgets.QWidget):
         return f"{latest_test_name}: {sign}{delta:.1f}"
 
     def _calculate_bmi(self, weight_kg: float, height_cm: float) -> float:
+        """BMI-kaava: paino(kg) / pituus(m)^2."""
         height_m = height_cm / 100
         return weight_kg / (height_m * height_m)
 
@@ -455,6 +489,7 @@ class MainWindow(QtWidgets.QWidget):
         return f"{sign}{delta:.1f}"
 
     def save_weight(self) -> None:
+        """Tallentaa uuden painomerkinnän ja päivittää taulukon sekä etusivun."""
         profile = get_user_profile()
         if profile is None:
             self._show_validation_error("Save profile before adding weight entries.")
@@ -477,6 +512,7 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def load_weight_entries(self) -> None:
+        """Täyttää painotaulukon tietokannan riveillä."""
         profile = get_user_profile()
         if profile is None:
             self.weight_table.setRowCount(0)
@@ -508,6 +544,7 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def edit_weight_entry(self) -> None:
+        """Lataa valitun painorivin tiedot syötekenttiin muokkausta varten."""
         selected_row = self.weight_table.currentRow()
         if selected_row == -1:
             return
@@ -528,6 +565,7 @@ class MainWindow(QtWidgets.QWidget):
         self.weight_note_input.setText(note_item.text() if note_item else "")
 
     def update_weight_entry(self) -> None:
+        """Päivittää muokkaustilassa olevan painorivin tietokantaan."""
         if self.editing_weight_entry_id is None:
             return
 
@@ -550,6 +588,7 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def save_test(self) -> None:
+        """Tallentaa uuden testituloksen ja päivittää listan sekä etusivun yhteenvedon."""
         profile = get_user_profile()
         if profile is None:
             self._show_validation_error("Save profile before adding tests.")
@@ -583,6 +622,12 @@ class MainWindow(QtWidgets.QWidget):
 
 
     def load_test_entries(self) -> None:
+        """
+        Lataa testitulokset listaan.
+
+        Riville talletetaan näkyvän tekstin lisäksi metatieto (id + kentät),
+        jotta muokkaus/toiminnot saadaan tehtyä ilman uutta hakua.
+        """
         profile = get_user_profile()
         self.test_results_list.clear()
         if profile is None:
@@ -608,6 +653,7 @@ class MainWindow(QtWidgets.QWidget):
             self.test_results_list.addItem(item)
 
     def delete_test_entry(self) -> None:
+        """Nostaa valitun testituloksen tiedot kenttiin muokkausta varten."""
         selected_item = self.test_results_list.currentItem()
         if selected_item is None:
             return
@@ -653,6 +699,7 @@ class MainWindow(QtWidgets.QWidget):
         self.editing_test_entry_id = int(entry_id)
 
     def update_test_entry(self) -> None:
+        """Tallentaa muokatun testituloksen tietokantaan ja nollaa muokkaustilan."""
         if self.editing_test_entry_id is None:
             return
 
@@ -692,6 +739,7 @@ class MainWindow(QtWidgets.QWidget):
         self._show_success("Testitulos päivitetty.")
 
     def save_program(self) -> None:
+        """Luo uuden treeniohjelman ja asettaa sen valituksi ohjelmaksi."""
         name = self.program_name_input.text().strip()
         if not name:
             self._show_validation_error("Ohjelman nimi on pakollinen.")
@@ -703,6 +751,7 @@ class MainWindow(QtWidgets.QWidget):
         self._show_success("Treeniohjelma luotu.")
 
     def load_programs(self) -> None:
+        """Lataa treeniohjelmat listaan uusimmasta vanhimpaan."""
         self.program_list.clear()
         for program_id, name, created_at in get_workout_programs():
             text = f"{name} ({created_at})"
@@ -711,6 +760,7 @@ class MainWindow(QtWidgets.QWidget):
             self.program_list.addItem(item)
 
     def select_program(self) -> None:
+        """Päivittää valitun ohjelman tilan ja lataa sen liikkeet näkyviin."""
         item = self.program_list.currentItem()
         if item is None:
             self.selected_program_id = None
@@ -723,6 +773,7 @@ class MainWindow(QtWidgets.QWidget):
         self.load_exercises_for_selected_program()
 
     def save_exercise(self) -> None:
+        """Lisää liikkeen valittuun treeniohjelmaan validoinnin jälkeen."""
         if self.selected_program_id is None:
             self._show_validation_error("Valitse ensin treeniohjelma listasta.")
             return
@@ -761,6 +812,7 @@ class MainWindow(QtWidgets.QWidget):
         self._show_success("Liike lisätty ohjelmaan.")
 
     def load_exercises_for_selected_program(self) -> None:
+        """Listaa valitun ohjelman liikkeet käyttöliittymän listawidgetiin."""
         self.exercise_list.clear()
         if self.selected_program_id is None:
             return
@@ -774,11 +826,30 @@ class MainWindow(QtWidgets.QWidget):
             )
 
     def refresh_graphs(self) -> None:
+        """Päivittää kaikki kehityssivun graafit yhdellä painikkeella."""
         self.refresh_weight_graph()
         self.refresh_bmi_graph()
         self.refresh_test_graph()
 
+    def _configure_progress_axis(self, ax, dates: list[str], values_count: int) -> None:
+        if values_count == 0:
+            return
+
+        positions = list(range(values_count))
+        max_labels = 8
+        step = max(1, values_count // max_labels)
+        tick_positions = positions[::step]
+        if tick_positions[-1] != positions[-1]:
+            tick_positions.append(positions[-1])
+
+        tick_labels = [dates[index] for index in tick_positions]
+        ax.set_xticks(tick_positions)
+        ax.set_xticklabels(tick_labels, rotation=35, ha="right", fontsize=8)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+
+
     def refresh_weight_graph(self) -> None:
+        """Piirtää painon kehityskäyrän aikajärjestyksessä."""
         self.weight_figure.clear()
         ax = self.weight_figure.add_subplot(111)
 
@@ -796,15 +867,17 @@ class MainWindow(QtWidgets.QWidget):
 
         dates = [row[0] for row in rows]
         weights = [row[1] for row in rows]
-        ax.plot(dates, weights, marker="o")
+        positions = list(range(len(dates)))
+        ax.plot(positions, weights, marker="o", linewidth=2, markersize=5)
         ax.set_title("Painon kehitys")
         ax.set_xlabel("Päivä")
         ax.set_ylabel("Paino (kg)")
-        ax.tick_params(axis="x", rotation=45)
+        self._configure_progress_axis(ax, dates, len(weights))
         self.weight_figure.tight_layout()
         self.weight_canvas.draw()
 
     def refresh_test_graph(self) -> None:
+        """Piirtää valitun testityypin tuloskehityksen."""
         self.test_figure.clear()
         ax = self.test_figure.add_subplot(111)
 
@@ -824,15 +897,17 @@ class MainWindow(QtWidgets.QWidget):
         dates = [row[0] for row in rows]
         results = [row[1] for row in rows]
         unit = rows[-1][2] or ""
-        ax.plot(dates, results, marker="o", color="green")
+        positions = list(range(len(dates)))
+        ax.plot(positions, results, marker="o", color="green", linewidth=2, markersize=5)
         ax.set_title(f"{test_name} kehitys")
         ax.set_xlabel("Päivä")
         ax.set_ylabel(f"Tulos {unit}".strip())
-        ax.tick_params(axis="x", rotation=45)
+        self._configure_progress_axis(ax, dates, len(results))
         self.test_figure.tight_layout()
         self.test_canvas.draw()
 
     def refresh_bmi_graph(self) -> None:
+        """Piirtää BMI-kehityksen käyttäen painohistoriaa + profiilin pituutta."""
         self.bmi_figure.clear()
         ax = self.bmi_figure.add_subplot(111)
 
@@ -856,15 +931,17 @@ class MainWindow(QtWidgets.QWidget):
 
         dates = [row[0] for row in rows]
         bmi_values = [self._calculate_bmi(row[1], height_cm) for row in rows]
-        ax.plot(dates, bmi_values, marker="o", color="purple")
+        positions = list(range(len(dates)))
+        ax.plot(positions, bmi_values, marker="o", color="purple", linewidth=2, markersize=5)
         ax.set_title("BMI kehitys")
         ax.set_xlabel("Päivä")
         ax.set_ylabel("BMI")
-        ax.tick_params(axis="x", rotation=45)
+        self._configure_progress_axis(ax, dates, len(bmi_values))
         self.bmi_figure.tight_layout()
         self.bmi_canvas.draw()
 
     def export_weight_csv(self) -> None:
+        """Vie painotaulukon rivit käyttäjän valitsemaan CSV-tiedostoon."""
         profile = get_user_profile()
         if profile is None:
             self._show_validation_error("Profiilia ei löydy.")
@@ -892,6 +969,7 @@ class MainWindow(QtWidgets.QWidget):
         self._show_success("Painodata vietiin CSV-tiedostoon.")
 
     def export_tests_csv(self) -> None:
+        """Vie testitulokset käyttäjän valitsemaan CSV-tiedostoon."""
         profile = get_user_profile()
         if profile is None:
             self._show_validation_error("Profiilia ei löydy.")
