@@ -13,6 +13,7 @@ from database import (
     delete_weight_entry as db_delete_weight_entry,
     get_test_entries,
     get_test_entries_for_name,
+    get_test_names,
     get_user_profile,
     get_weight_entries,
     get_weight_entries_asc,
@@ -38,6 +39,7 @@ class MainWindow(QtWidgets.QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("StrengthTrack")
+        self.default_test_names = ["punnerrukset", "leuanvedot", "lankku", "kyykyt", "muu"]
         # Muokkaustila: näihin tallennetaan valitun rivin id, kun käyttäjä
         # painaa "Muokkaa"-painiketta. Päivitys käyttää tätä id:tä.
 
@@ -58,6 +60,7 @@ class MainWindow(QtWidgets.QWidget):
 
         # Etusivu avataan oletuksena ja siihen ladataan profiilin tilanne.
         self.pages.setCurrentWidget(self.home_page)
+        self.refresh_test_name_options()
         self.load_user_profile()
 
     def _create_inputs(self) -> None:
@@ -73,7 +76,9 @@ class MainWindow(QtWidgets.QWidget):
 
         self.test_date_input = QtWidgets.QDateEdit()
         self.test_name_input = QtWidgets.QComboBox()
-        self.test_name_input.addItems(["punnerrukset", "leuanvedot", "lankku", "kyykyt", "muu"])
+        self.test_name_input.setEditable(True)
+        self.test_name_input.addItems(self.default_test_names)
+
         self.test_result_input = QtWidgets.QLineEdit()
         self.test_unit_input = QtWidgets.QLineEdit()
         self.test_comment_input = QtWidgets.QLineEdit()
@@ -91,8 +96,7 @@ class MainWindow(QtWidgets.QWidget):
         self.exercise_list = QtWidgets.QListWidget()
 
         self.progress_test_selector = QtWidgets.QComboBox()
-        self.progress_test_selector.addItems(["punnerrukset", "leuanvedot", "lankku", "kyykyt", "muu"])
-
+        self.progress_test_selector.addItems(self.default_test_names)
 
         self.weight_date_input.setCalendarPopup(True)
         self.weight_date_input.setDate(QtCore.QDate.currentDate())
@@ -602,10 +606,14 @@ class MainWindow(QtWidgets.QWidget):
         if not unit:
             self._show_validation_error("Yksikkö on pakollinen.")
             return
+        
+        test_name = self.test_name_input.currentText().strip()
+        if not test_name:
+            self._show_validation_error("Liikkeen nimi on pakollinen.")
+            return
 
         user_id = profile[0]
         entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
-        test_name = self.test_name_input.currentText()
         unit = self.test_unit_input.text().strip()
         note = self.test_comment_input.text().strip()
 
@@ -617,6 +625,7 @@ class MainWindow(QtWidgets.QWidget):
         self.test_comment_input.clear()
         self.test_date_input.setDate(QtCore.QDate.currentDate())
         self.load_test_entries()
+        self.refresh_test_name_options(selected_name=test_name)
         self.load_user_profile()
         self._show_success("Testitulos tallennettu.")
 
@@ -664,6 +673,7 @@ class MainWindow(QtWidgets.QWidget):
 
         db_delete_test_entry(int(entry_id))
         self.load_test_entries()
+        self.refresh_test_name_options()
         self.load_user_profile()
         self._show_success("Testitulos poistettu.")
 
@@ -689,9 +699,7 @@ class MainWindow(QtWidgets.QWidget):
         if test_name_index >= 0:
             self.test_name_input.setCurrentIndex(test_name_index)
         else:
-            other_index = self.test_name_input.findText("muu")
-            if other_index >= 0:
-                self.test_name_input.setCurrentIndex(other_index)
+            self.test_name_input.setEditText(entry_data["test_name"])
 
         self.test_result_input.setText(str(entry_data["result_value"]))
         self.test_unit_input.setText(entry_data["unit"])
@@ -711,10 +719,13 @@ class MainWindow(QtWidgets.QWidget):
         if not unit:
             self._show_validation_error("Yksikkö on pakollinen.")
             return
-
+        
+        test_name = self.test_name_input.currentText().strip()
+        if not test_name:
+            self._show_validation_error("Liikkeen nimi on pakollinen.")
+            return
 
         entry_date = self.test_date_input.date().toString("yyyy-MM-dd")
-        test_name = self.test_name_input.currentText()
         unit = self.test_unit_input.text().strip()
         note = self.test_comment_input.text().strip()
 
@@ -734,9 +745,40 @@ class MainWindow(QtWidgets.QWidget):
         self.test_comment_input.clear()
         self.test_date_input.setDate(QtCore.QDate.currentDate())
         self.load_test_entries()
+        self.refresh_test_name_options(selected_name=test_name)
 
         self.load_user_profile()
         self._show_success("Testitulos päivitetty.")
+
+    def refresh_test_name_options(self, selected_name: Optional[str] = None) -> None:
+        """Synkronoi testinimien valinnat oletuksista + tallennetuista nimistä."""
+        profile = get_user_profile()
+        saved_names = get_test_names(profile[0]) if profile is not None else []
+        unique_names = list(dict.fromkeys(self.default_test_names + saved_names))
+
+        current_test_name = selected_name or self.test_name_input.currentText().strip()
+        current_progress_name = selected_name or self.progress_test_selector.currentText().strip()
+
+        self.test_name_input.blockSignals(True)
+        self.progress_test_selector.blockSignals(True)
+        self.test_name_input.clear()
+        self.progress_test_selector.clear()
+        self.test_name_input.addItems(unique_names)
+        self.progress_test_selector.addItems(unique_names)
+        self.test_name_input.blockSignals(False)
+        self.progress_test_selector.blockSignals(False)
+
+        if current_test_name:
+            test_index = self.test_name_input.findText(current_test_name)
+            if test_index >= 0:
+                self.test_name_input.setCurrentIndex(test_index)
+            else:
+                self.test_name_input.setEditText(current_test_name)
+
+        if current_progress_name:
+            progress_index = self.progress_test_selector.findText(current_progress_name)
+            if progress_index >= 0:
+                self.progress_test_selector.setCurrentIndex(progress_index)
 
     def save_program(self) -> None:
         """Luo uuden treeniohjelman ja asettaa sen valituksi ohjelmaksi."""

@@ -275,6 +275,25 @@ def get_test_entries_for_name(user_id, test_name):
 
     return rows
 
+def get_test_names(user_id):
+    """Palauttaa käyttäjän tallentamat uniikit testi-/liikenimet."""
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+    SELECT DISTINCT test_name
+    FROM fitness_tests
+    WHERE user_id = ? AND test_name IS NOT NULL AND TRIM(test_name) != ''
+    ORDER BY test_name COLLATE NOCASE ASC
+    """,
+        (user_id,),
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+    return [row[0] for row in rows]
+
 def delete_test_entry(entry_id):
     """Poistaa yhden testituloksen id:n perusteella."""
     conn = connect()
