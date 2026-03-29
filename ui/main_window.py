@@ -116,6 +116,7 @@ class MainWindow(QtWidgets.QWidget):
         self.save_weight_button = QtWidgets.QPushButton("Tallenna paino")
         self.save_test_button = QtWidgets.QPushButton("Tallenna testi")
         self.save_program_button = QtWidgets.QPushButton("Luo ohjelma")
+        self.add_pullup_template_button = QtWidgets.QPushButton("Lisää valmis leuanveto-ohjelma")
         self.save_exercise_button = QtWidgets.QPushButton("Lisää liike")
 
         self.delete_weight_button = QtWidgets.QPushButton("Poista valittu paino")
@@ -124,6 +125,7 @@ class MainWindow(QtWidgets.QWidget):
         self.update_weight_button = QtWidgets.QPushButton("Päivitä paino")
         self.edit_test_button = QtWidgets.QPushButton("Muokkaa valittua testiä")
         self.update_test_button = QtWidgets.QPushButton("Päivitä testi")
+        self.run_muscle_test_button = QtWidgets.QPushButton("Tee lihaskuntotesti")
 
         self.refresh_graphs_button = QtWidgets.QPushButton("Päivitä graafit")
         self.export_weight_csv_button = QtWidgets.QPushButton("Vie painodata CSV")
@@ -163,6 +165,7 @@ class MainWindow(QtWidgets.QWidget):
         tests_page_layout.addWidget(self.edit_test_button)
         tests_page_layout.addWidget(self.update_test_button)
         tests_page_layout.addWidget(self.delete_test_button)
+        tests_page_layout.addWidget(self.run_muscle_test_button)
         tests_page_layout.addWidget(QtWidgets.QLabel("Testitulokset"))
         tests_page_layout.addWidget(self.test_results_list)
         self.tests_page.setLayout(tests_page_layout)
@@ -230,6 +233,7 @@ class MainWindow(QtWidgets.QWidget):
         program_form = QtWidgets.QFormLayout()
         program_form.addRow(QtWidgets.QLabel("Ohjelman nimi"), self.program_name_input)
         program_form.addRow(self.save_program_button)
+        program_form.addRow(self.add_pullup_template_button)
 
         exercise_form = QtWidgets.QFormLayout()
         exercise_form.addRow(QtWidgets.QLabel("Päivä"), self.exercise_day_input)
@@ -309,6 +313,7 @@ class MainWindow(QtWidgets.QWidget):
         self.save_weight_button.clicked.connect(self.save_weight)
         self.save_test_button.clicked.connect(self.save_test)
         self.save_program_button.clicked.connect(self.save_program)
+        self.add_pullup_template_button.clicked.connect(self.create_pullup_program_template)
 
         self.delete_test_button.clicked.connect(self.delete_test_entry)
         self.delete_weight_button.clicked.connect(self.delete_weight_entry)
@@ -316,6 +321,7 @@ class MainWindow(QtWidgets.QWidget):
         self.update_weight_button.clicked.connect(self.update_weight_entry)
         self.edit_test_button.clicked.connect(self.edit_test_entry)
         self.update_test_button.clicked.connect(self.update_test_entry)
+        self.run_muscle_test_button.clicked.connect(self.run_muscle_fitness_test)
 
         self.program_list.itemSelectionChanged.connect(self.select_program)
 
@@ -629,6 +635,114 @@ class MainWindow(QtWidgets.QWidget):
         self.load_user_profile()
         self._show_success("Testitulos tallennettu.")
 
+         def run_muscle_fitness_test(self) -> None:
+        """
+        Avaan ohjatun lihaskuntotestin ja tallentaa tulokset yhdellä kertaa.
+
+        Testi sisältää neljä perusosiota:
+        - punnerrukset (60 s)
+        - vatsarutistukset (60 s)
+        - kehonpainokyykyt (60 s)
+        - lankku (maksimiaika sekunteina)
+        """
+        profile = get_user_profile()
+        if profile is None:
+            self._show_validation_error("Tallenna profiili ennen testin tekemistä.")
+            return
+
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle("Lihaskuntotesti")
+        layout = QtWidgets.QFormLayout(dialog)
+
+        test_date_input = QtWidgets.QDateEdit()
+        test_date_input.setCalendarPopup(True)
+        test_date_input.setDate(QtCore.QDate.currentDate())
+
+        pushups_input = QtWidgets.QLineEdit()
+        situps_input = QtWidgets.QLineEdit()
+        squats_input = QtWidgets.QLineEdit()
+        plank_seconds_input = QtWidgets.QLineEdit()
+        note_input = QtWidgets.QLineEdit()
+        note_input.setPlaceholderText("esim. testattu salilla, hyvä vire")
+
+        layout.addRow(QtWidgets.QLabel("Päivä"), test_date_input)
+        layout.addRow(QtWidgets.QLabel("Punnerrukset 60 s (toistot)"), pushups_input)
+        layout.addRow(QtWidgets.QLabel("Vatsarutistukset 60 s (toistot)"), situps_input)
+        layout.addRow(QtWidgets.QLabel("Kehonpainokyykyt 60 s (toistot)"), squats_input)
+        layout.addRow(QtWidgets.QLabel("Lankku (sekuntia)"), plank_seconds_input)
+        layout.addRow(QtWidgets.QLabel("Huomio"), note_input)
+
+        button_box = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel
+        )
+        layout.addRow(button_box)
+        button_box.accepted.connect(dialog.accept)
+        button_box.rejected.connect(dialog.reject)
+
+        if dialog.exec() != QtWidgets.QDialog.Accepted:
+            return
+
+        try:
+            pushups = int(pushups_input.text().strip())
+            situps = int(situps_input.text().strip())
+            squats = int(squats_input.text().strip())
+            plank_seconds = int(plank_seconds_input.text().strip())
+        except ValueError:
+            self._show_validation_error("Kaikki lihaskuntotestin tulokset pitää syöttää kokonaislukuina.")
+            return
+
+        if min(pushups, situps, squats, plank_seconds) < 0:
+            self._show_validation_error("Testitulokset eivät voi olla negatiivisia.")
+            return
+
+        user_id = profile[0]
+        entry_date = test_date_input.date().toString("yyyy-MM-dd")
+        note = note_input.text().strip()
+        common_note = "Lihaskuntotesti" if not note else f"Lihaskuntotesti: {note}"
+
+        test_rows = [
+            ("punnerrukset 60 s", float(pushups), "reps"),
+            ("vatsarutistukset 60 s", float(situps), "reps"),
+            ("kehonpainokyykyt 60 s", float(squats), "reps"),
+            ("lankku", float(plank_seconds), "s"),
+        ]
+
+        for test_name, result_value, unit in test_rows:
+            save_test_entry(user_id, entry_date, test_name, result_value, unit, common_note)
+
+        muscle_index = self._calculate_muscle_fitness_index(pushups, situps, squats, plank_seconds)
+        save_test_entry(
+            user_id,
+            entry_date,
+            "lihaskuntoindeksi",
+            float(muscle_index),
+            "pistettä",
+            common_note,
+        )
+
+        self.load_test_entries()
+        self.refresh_test_name_options(selected_name="lihaskuntoindeksi")
+        self.load_user_profile()
+        self._show_success("Lihaskuntotesti tallennettu (4 osiota + indeksi).")
+
+    def _calculate_muscle_fitness_index(
+        self,
+        pushups: int,
+        situps: int,
+        squats: int,
+        plank_seconds: int,
+    ) -> int:
+        """
+        Laskee yksinkertaisen lihaskuntoindeksin 0-20 pisteen skaalassa.
+
+        Jokainen osio antaa 0-5 pistettä, jolloin neljästä osiosta
+        kokonaispistemäärä on 0-20.
+        """
+        pushup_points = min(5, pushups // 10)
+        situp_points = min(5, situps // 12)
+        squat_points = min(5, squats // 15)
+        plank_points = min(5, plank_seconds // 30)
+        return pushup_points + situp_points + squat_points + plank_points
 
     def load_test_entries(self) -> None:
         """
@@ -792,6 +906,84 @@ class MainWindow(QtWidgets.QWidget):
         self.load_programs()
         self._show_success("Treeniohjelma luotu.")
 
+    def create_pullup_program_template(self) -> None:
+        """
+        Luo valmiin 3x/vko leuanvetopainotteisen ohjelman.
+
+        Ohjelma lisätään päiville maanantai, keskiviikko ja perjantai.
+        Lämmittely + päätreeni toistetaan jokaisena treenipäivänä.
+        """
+
+        program_name = "Leuanveto-ohjelma 3x/vko (ma-ke-pe)"
+        program_id = save_workout_program(program_name)
+
+        day_names = ["Maanantai", "Keskiviikko", "Perjantai"]
+        for day_name in day_names:
+            template_rows = [
+                ("Lämmittely", 1, 5, None, "5 minuuttia kevyttä lämmittelyä"),
+                ("Kyykky", 2, 20, None, "Lämmittelykierros"),
+                ("Kevyt punnerrus", 2, 15, None, "Lämmittelykierros"),
+                ("Roikkuminen tangossa", 2, 20, None, "Sekuntia / kierros"),
+                ("Lankku", 2, 20, None, "Sekuntia / kierros"),
+                ("Leuanveto", 3, None, None, "Niin monta toistoa kuin jaksat (AMRAP)"),
+                (
+                    "Negatiivinen leuanveto",
+                    3,
+                    3,
+                    None,
+                    "Jos et saa vielä leuanvetoa: hyppää ylös, laskeudu hitaasti",
+                ),
+                ("Punnerrus", 3, 10, None, "10-15 toistoa"),
+                ("Kyykky", 3, 15, None, ""),
+                ("Riippuva polvennosto tangossa", 3, 10, None, "10-15 toistoa, kehittää vatsaa"),
+                ("Vatsarutistus lattialla", 3, 10, None, "Korvaa polvennostot, jos liike on liian vaikea"),
+                ("Tuolidippi", 3, 10, None, "10-12 toistoa"),
+                ("Lankku", 3, 40, None, "Sekuntia"),
+                ("Kevyt venyttely", 1, 5, None, "Lopuksi: selkä, rinta, jalat, hartiat"),
+            ]
+
+            for exercise_name, sets, reps, extra_weight, note in template_rows:
+                save_workout_exercise(
+                    program_id,
+                    day_name,
+                    exercise_name,
+                    sets,
+                    reps,
+                    extra_weight,
+                    note,
+                )
+
+        progression_rows = [
+            ("Viikko 1", "Roiku tangossa 20-30 sekuntia ja tee negatiivisia leuanvetoja"),
+            ("Viikot 2-3", "Usein 1-3 oikeaa leuanvetoa alkaa onnistua"),
+            ("Viikot 4-6", "5 tai enemmän leuanvetoa alkaa olla realistinen"),
+        ]
+        for day_label, progression_note in progression_rows:
+            save_workout_exercise(
+                program_id,
+                day_label,
+                "Leuanvetokehitys",
+                1,
+                1,
+                None,
+                progression_note,
+            )
+
+        self.selected_program_id = program_id
+        self.load_programs()
+        self._select_program_by_id(program_id)
+        self._show_success("Valmis leuanveto-ohjelma lisätty.")
+
+    def _select_program_by_id(self, program_id: int) -> None:
+        """Valitsee ohjelmalistasta ohjelman id:n perusteella."""
+        for row in range(self.program_list.count()):
+            item = self.program_list.item(row)
+            if item is None:
+                continue
+            if int(item.data(QtCore.Qt.UserRole)) == program_id:
+                self.program_list.setCurrentItem(item)
+                return
+
     def load_programs(self) -> None:
         """Lataa treeniohjelmat listaan uusimmasta vanhimpaan."""
         self.program_list.clear()
@@ -889,6 +1081,9 @@ class MainWindow(QtWidgets.QWidget):
         ax.set_xticklabels(tick_labels, rotation=35, ha="right", fontsize=8)
         ax.grid(True, axis="y", linestyle="--", alpha=0.4)
 
+    def _finalize_progress_figure(self, figure) -> None:
+        """Säätää kehitysgraafin marginaalit siten, että etiketeille jää tilaa."""
+        figure.subplots_adjust(left=0.12, right=0.97, top=0.88, bottom=0.28)
 
     def refresh_weight_graph(self) -> None:
         """Piirtää painon kehityskäyrän aikajärjestyksessä."""
@@ -915,7 +1110,7 @@ class MainWindow(QtWidgets.QWidget):
         ax.set_xlabel("Päivä")
         ax.set_ylabel("Paino (kg)")
         self._configure_progress_axis(ax, dates, len(weights))
-        self.weight_figure.tight_layout()
+        self._finalize_progress_figure(self.weight_figure)
         self.weight_canvas.draw()
 
     def refresh_test_graph(self) -> None:
@@ -945,7 +1140,7 @@ class MainWindow(QtWidgets.QWidget):
         ax.set_xlabel("Päivä")
         ax.set_ylabel(f"Tulos {unit}".strip())
         self._configure_progress_axis(ax, dates, len(results))
-        self.test_figure.tight_layout()
+        self._finalize_progress_figure(self.test_figure)
         self.test_canvas.draw()
 
     def refresh_bmi_graph(self) -> None:
@@ -979,7 +1174,7 @@ class MainWindow(QtWidgets.QWidget):
         ax.set_xlabel("Päivä")
         ax.set_ylabel("BMI")
         self._configure_progress_axis(ax, dates, len(bmi_values))
-        self.bmi_figure.tight_layout()
+        self._finalize_progress_figure(self.bmi_figure)
         self.bmi_canvas.draw()
 
     def export_weight_csv(self) -> None:
